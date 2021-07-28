@@ -30,6 +30,10 @@ Gem::Specification.new do |spec|
   spec.files         = Dir.chdir(File.expand_path('..', __FILE__)) do
     `git ls-files -z`.split("\x0").reject { |f| f.match(%r{^(test|spec|features|bin)/}) }
   end
+
+  spec.files.push(*%w{ext/rbs/parser/extconf.rb ext/rbs/parser/parser.c ext/rbs/parser/parser.h ext/rbs/parser/lexer.c})
+  spec.extensions = %w{ext/rbs/parser/extconf.rb}
+
   spec.files << "lib/rbs/parser.rb"
   spec.bindir        = "exe"
   spec.executables   = spec.files.grep(%r{^exe/}) { |f| File.basename(f) }
