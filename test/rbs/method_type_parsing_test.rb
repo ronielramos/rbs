@@ -8,6 +8,10 @@ class RBS::MethodTypeParsingTest < Test::Unit::TestCase
   Namespace = RBS::Namespace
   Location = RBS::Location
 
+  def test_tokenizer
+    RBS::Parser.parse_type("(==)", "foo.rbs", 1, 0)
+  end
+
   def test_method_type
     Parser.parse_method_type("()->void").yield_self do |type|
       assert_equal "() -> void", type.to_s

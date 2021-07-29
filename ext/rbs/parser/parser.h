@@ -1,4 +1,4 @@
-#include "ruby/ruby.h"
+#include "ruby.h"
 #include "ruby/re.h"
 #include "ruby/encoding.h"
 
@@ -28,7 +28,15 @@ enum TokenType {
   pAMP,             /* & */
   pSTAR,            /* * */
   pSTAR2,           /* ** */
+  pDOT,             /* . */
   pDOT3,            /* ... */
+  pMINUS,           /* - */
+  pPLUS,            /* + */
+  pSLASH,           /* / */
+  pEQ2,             /* == */
+  pEQ3,             /* === */
+  pEQT,             /* =~ */
+  pBANG,            /* ! */
 
   kSINGLETON,       /* singleton */
   kSELF,            /* self */
@@ -54,4 +62,4 @@ typedef struct {
   token last_token;
 } lexstate;
 
-token rbsparser_nextToken(lexstate *state);
+token rbsparser_nextToken(lexstate *state, token token);
