@@ -40,10 +40,16 @@ static const char *names[] = {
   "pBANG",
   "pQUESTION",
 
-  "kSINGLETON",
-  "kSELF",
-  "kINSTANCE",
-  "kVOID",
+  "kBOOL",            /* bool */
+  "kBOT",             /* bot */
+  "kCLASS",           /* class */
+  "kINSTANCE",        /* instance */
+  "kINTERFACE",       /* interface */
+  "kNIL",             /* nil */
+  "kSELF",            /* self */
+  "kSINGLETON",       /* singleton */
+  "kTOP",             /* top */
+  "kVOID",            /* void */
 
   "tLIDENT",          /* Identifiers starting with lower case */
   "tUIDENT",          /* Identifiers starting with upper case */
@@ -66,6 +72,10 @@ typedef struct {
 } method_params;
 
 #define INTERN_TOKEN(parserstate, tok) rb_intern2(peek_token(parserstate->lexstate, tok), token_bytes(tok))
+
+
+static VALUE parse_optional(parserstate *state);
+static VALUE parse_simple(parserstate *state);
 
 static void print_token(token tok) {
   printf("%s char=%d...%d\n", names[tok.type], tok.start.char_pos, tok.end.char_pos);
@@ -389,6 +399,21 @@ static void parse_params(parserstate *state, method_params *params) {
   parse_required_params(state, params);
 }
 
+/*
+    simple_type
+  | simple_type '?'
+*/
+static VALUE parse_optional(parserstate *state) {
+  VALUE type = parse_simple(state);
+
+  if (state->next_token.type == pQUESTION) {
+    parser_advance(state);
+    return rbs_optional(type);
+  } else {
+    return type;
+  }
+}
+
 static VALUE parse_proc_type(parserstate *state) {
   method_params params;
   params.required_positionals = rb_ary_new();
@@ -434,10 +459,22 @@ static VALUE parse_simple(parserstate *state) {
     parser_advance_assert(state, pRPAREN);
     return type;
   }
+  case kBOOL:
+    return rbs_base_type(RBS_Types_Bases_Bool, rbs_location_current_token(state));
+  case kBOT:
+    return rbs_base_type(RBS_Types_Bases_Bottom, rbs_location_current_token(state));
+  case kCLASS:
+    return rbs_base_type(RBS_Types_Bases_Class, rbs_location_current_token(state));
+  case kINSTANCE:
+    return rbs_base_type(RBS_Types_Bases_Instance, rbs_location_current_token(state));
+  case kNIL:
+    return rbs_base_type(RBS_Types_Bases_Nil, rbs_location_current_token(state));
   case kSELF:
-    return rbs_self_type(rbs_location_current_token(state));
+    return rbs_base_type(RBS_Types_Bases_Self, rbs_location_current_token(state));
+  case kTOP:
+    return rbs_base_type(RBS_Types_Bases_Top, rbs_location_current_token(state));
   case kVOID:
-    return rbs_void(rbs_location_current_token(state));
+    return rbs_base_type(RBS_Types_Bases_Void, rbs_location_current_token(state));
   case tUIDENT:
   case pCOLON2: {
     VALUE typename = parse_type_name(state);
@@ -490,21 +527,6 @@ static VALUE parse_simple(parserstate *state) {
   }
   default:
     rb_raise(rb_eRuntimeError, "Parse error (parse_type)");
-  }
-}
-
-/*
-    simple_type
-  | simple_type '?'
-*/
-static VALUE parse_optional(parserstate *state) {
-  VALUE type = parse_simple(state);
-
-  if (state->next_token.type == pQUESTION) {
-    parser_advance(state);
-    return rbs_optional(type);
-  } else {
-    return type;
   }
 }
 
@@ -570,39 +592,54 @@ void
 Init_parser(void)
 {
   id_RBS = rb_intern_const("RBS");
+
   RBS = rb_const_get(rb_cObject, id_RBS);
-  RBSParser = rb_define_class_under(RBS, "Parser", rb_cObject);
   RBS_AST = rb_const_get(RBS, rb_intern("AST"));
-  RBS_Types = rb_const_get(RBS, rb_intern("Types"));
-  RBS_Types_Bases = rb_const_get(RBS_Types, rb_intern("Bases"));
-  RBS_Types_Bases_Self = rb_const_get(RBS_Types_Bases, rb_intern("Self"));
+  RBS_Location = rb_const_get(RBS, rb_intern("Location"));
   RBS_Namespace = rb_const_get(RBS, rb_intern("Namespace"));
   RBS_TypeName = rb_const_get(RBS, rb_intern("TypeName"));
-  RBS_Types_ClassInstance = rb_const_get(RBS_Types, rb_intern("ClassInstance"));
+  RBS_Types = rb_const_get(RBS, rb_intern("Types"));
   RBS_Types_Alias = rb_const_get(RBS_Types, rb_intern("Alias"));
-  RBS_Types_Interface = rb_const_get(RBS_Types, rb_intern("Interface"));
-  RBS_Types_Union = rb_const_get(RBS_Types, rb_intern("Union"));
-  RBS_Types_Intersection = rb_const_get(RBS_Types, rb_intern("Intersection"));
+  RBS_Types_Bases = rb_const_get(RBS_Types, rb_intern("Bases"));
+  RBS_Types_Bases_Any = rb_const_get(RBS_Types_Bases, rb_intern("Any"));
+  RBS_Types_Bases_Bool = rb_const_get(RBS_Types_Bases, rb_intern("Bool"));
+  RBS_Types_Bases_Bottom = rb_const_get(RBS_Types_Bases, rb_intern("Bottom"));
+  RBS_Types_Bases_Class = rb_const_get(RBS_Types_Bases, rb_intern("Class"));
+  RBS_Types_Bases_Instance = rb_const_get(RBS_Types_Bases, rb_intern("Instance"));
+  RBS_Types_Bases_Nil = rb_const_get(RBS_Types_Bases, rb_intern("Nil"));
+  RBS_Types_Bases_Self = rb_const_get(RBS_Types_Bases, rb_intern("Self"));
+  RBS_Types_Bases_Top = rb_const_get(RBS_Types_Bases, rb_intern("Top"));
+  RBS_Types_Bases_Void = rb_const_get(RBS_Types_Bases, rb_intern("Void"));
+  RBS_Types_Block = rb_const_get(RBS_Types, rb_intern("Block"));
+  RBS_Types_ClassInstance = rb_const_get(RBS_Types, rb_intern("ClassInstance"));
   RBS_Types_ClassSingleton = rb_const_get(RBS_Types, rb_intern("ClassSingleton"));
-  RBS_Types_Tuple = rb_const_get(RBS_Types, rb_intern("Tuple"));
-  RBS_Types_Optional = rb_const_get(RBS_Types, rb_intern("Optional"));
-  RBS_Location = rb_const_get(RBS, rb_intern("Location"));
   RBS_Types_Function = rb_const_get(RBS_Types, rb_intern("Function"));
   RBS_Types_Function_Param = rb_const_get(RBS_Types_Function, rb_intern("Param"));
-  RBS_Types_Block = rb_const_get(RBS_Types, rb_intern("Block"));
+  RBS_Types_Interface = rb_const_get(RBS_Types, rb_intern("Interface"));
+  RBS_Types_Intersection = rb_const_get(RBS_Types, rb_intern("Intersection"));
+  RBS_Types_Optional = rb_const_get(RBS_Types, rb_intern("Optional"));
   RBS_Types_Proc = rb_const_get(RBS_Types, rb_intern("Proc"));
-  RBS_Types_Bases_Void = rb_const_get(RBS_Types_Bases, rb_intern("Void"));
+  RBS_Types_Tuple = rb_const_get(RBS_Types, rb_intern("Tuple"));
+  RBS_Types_Union = rb_const_get(RBS_Types, rb_intern("Union"));
+  RBSParser = rb_define_class_under(RBS, "Parser", rb_cObject);
 
   sym_class = ID2SYM(rb_intern_const("class"));
   sym_interface = ID2SYM(rb_intern_const("interface"));
   sym_alias = ID2SYM(rb_intern_const("alias"));
 
   rbsparser_Keywords = rb_hash_new();
-  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("singleton"), INT2FIX(kSINGLETON));
-  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("self"), INT2FIX(kSELF));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("bool"), INT2FIX(kBOOL));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("bot"), INT2FIX(kBOT));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("class"), INT2FIX(kCLASS));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("instance"), INT2FIX(kINSTANCE));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("interface"), INT2FIX(kINTERFACE));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("nil"), INT2FIX(kNIL));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("self"), INT2FIX(kSELF));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("singleton"), INT2FIX(kSINGLETON));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("top"), INT2FIX(kTOP));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("void"), INT2FIX(kVOID));
-  rb_define_const(RBSParser, "Keywords", rbsparser_Keywords);
+
+  rb_define_const(RBSParser, "KEYWORDS", rbsparser_Keywords);
 
   rb_define_singleton_method(RBSParser, "_parse_type", rbsparser_parse_type, 3);
 }

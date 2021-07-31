@@ -32,9 +32,15 @@ enum TokenType {
   pBANG,            /* ! */
   pQUESTION,        /* ? */
 
-  kSINGLETON,       /* singleton */
-  kSELF,            /* self */
+  kBOOL,            /* bool */
+  kBOT,             /* bot */
+  kCLASS,           /* class */
   kINSTANCE,        /* instance */
+  kINTERFACE,       /* interface */
+  kNIL,             /* nil */
+  kSELF,            /* self */
+  kSINGLETON,       /* singleton */
+  kTOP,             /* top */
   kVOID,            /* void */
 
   tLIDENT,          /* Identifiers starting with lower case */
@@ -90,8 +96,16 @@ void pp(VALUE object);
 
 extern VALUE RBS_AST;
 extern VALUE RBS_Types;
-extern VALUE RBS_Types_Bases;
+extern VALUE RBS_Types_Bases_Any;
+extern VALUE RBS_Types_Bases_Bool;
+extern VALUE RBS_Types_Bases_Bottom;
+extern VALUE RBS_Types_Bases_Class;
+extern VALUE RBS_Types_Bases_Instance;
+extern VALUE RBS_Types_Bases_Nil;
 extern VALUE RBS_Types_Bases_Self;
+extern VALUE RBS_Types_Bases_Top;
+extern VALUE RBS_Types_Bases_Void;
+extern VALUE RBS_Types_Bases;
 extern VALUE RBS_Types_ClassInstance;
 extern VALUE RBS_Types_Alias;
 extern VALUE RBS_Types_Interface;
@@ -107,9 +121,8 @@ extern VALUE RBS_Types_Function;
 extern VALUE RBS_Types_Function_Param;
 extern VALUE RBS_Types_Block;
 extern VALUE RBS_Types_Proc;
-extern VALUE RBS_Types_Bases_Void;
 
-VALUE rbs_self_type(VALUE location);
+VALUE rbs_base_type(VALUE klass, VALUE location);
 VALUE rbs_namespace(VALUE path, VALUE absolute);
 VALUE rbs_type_name(VALUE namespace, VALUE name);
 VALUE rbs_class_instance(VALUE typename, VALUE type_args);
@@ -124,9 +137,7 @@ VALUE rbs_location(VALUE buffer, int start_pos, int end_pos);
 VALUE rbs_location_pp(VALUE buffer, const position *start_pos, const position *end_pos);
 VALUE rbs_location_tok(VALUE buffer, const token *tok);
 VALUE rbs_location_current_token(parserstate *state);
-
 VALUE rbs_function(VALUE required_positional_params, VALUE optional_positional_params, VALUE rest_positional_params, VALUE trailing_positional_params, VALUE required_keywords, VALUE optional_keywords, VALUE rest_keywords, VALUE return_type);
 VALUE rbs_function_param(VALUE type, VALUE name, VALUE location);
 VALUE rbs_block(VALUE type, VALUE required);
 VALUE rbs_proc(VALUE function, VALUE block, VALUE location);
-VALUE rbs_void(VALUE location);

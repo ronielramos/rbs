@@ -7,7 +7,15 @@ VALUE RBS_TypeName;
 
 VALUE RBS_Types;
 VALUE RBS_Types_Bases;
+VALUE RBS_Types_Bases_Any;
+VALUE RBS_Types_Bases_Bool;
+VALUE RBS_Types_Bases_Bottom;
+VALUE RBS_Types_Bases_Class;
+VALUE RBS_Types_Bases_Instance;
+VALUE RBS_Types_Bases_Nil;
 VALUE RBS_Types_Bases_Self;
+VALUE RBS_Types_Bases_Top;
+VALUE RBS_Types_Bases_Void;
 VALUE RBS_Types_ClassInstance;
 VALUE RBS_Types_Alias;
 VALUE RBS_Types_Interface;
@@ -21,14 +29,14 @@ VALUE RBS_Types_Function;
 VALUE RBS_Types_Function_Param;
 VALUE RBS_Types_Block;
 VALUE RBS_Types_Proc;
-VALUE RBS_Types_Bases_Void;
 
-VALUE rbs_self_type(VALUE location) {
+
+VALUE rbs_base_type(VALUE klass, VALUE location) {
   VALUE args = rb_hash_new();
   rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
 
   return rb_funcallv_kw(
-    RBS_Types_Bases_Self,
+    klass,
     rb_intern("new"),
     1,
     &args,
