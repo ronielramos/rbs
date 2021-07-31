@@ -35,6 +35,7 @@ enum TokenType {
   kSINGLETON,       /* singleton */
   kSELF,            /* self */
   kINSTANCE,        /* instance */
+  kVOID,            /* void */
 
   tLIDENT,          /* Identifiers starting with lower case */
   tUIDENT,          /* Identifiers starting with upper case */
@@ -66,8 +67,9 @@ typedef struct {
 
 typedef struct {
   lexstate *lexstate;
-  token next_token;
   token current_token;
+  token next_token;
+  token next_token2;
   VALUE buffer;
 } parserstate;
 
@@ -101,6 +103,11 @@ extern VALUE RBS_Types_Optional;
 extern VALUE RBS_Namespace;
 extern VALUE RBS_TypeName;
 extern VALUE RBS_Location;
+extern VALUE RBS_Types_Function;
+extern VALUE RBS_Types_Function_Param;
+extern VALUE RBS_Types_Block;
+extern VALUE RBS_Types_Proc;
+extern VALUE RBS_Types_Bases_Void;
 
 VALUE rbs_self_type(VALUE location);
 VALUE rbs_namespace(VALUE path, VALUE absolute);
@@ -116,4 +123,10 @@ VALUE rbs_optional(VALUE type);
 VALUE rbs_location(VALUE buffer, int start_pos, int end_pos);
 VALUE rbs_location_pp(VALUE buffer, const position *start_pos, const position *end_pos);
 VALUE rbs_location_tok(VALUE buffer, const token *tok);
+VALUE rbs_location_current_token(parserstate *state);
 
+VALUE rbs_function(VALUE required_positional_params, VALUE optional_positional_params, VALUE rest_positional_params, VALUE trailing_positional_params, VALUE required_keywords, VALUE optional_keywords, VALUE rest_keywords, VALUE return_type);
+VALUE rbs_function_param(VALUE type, VALUE name, VALUE location);
+VALUE rbs_block(VALUE type, VALUE required);
+VALUE rbs_proc(VALUE function, VALUE block, VALUE location);
+VALUE rbs_void(VALUE location);

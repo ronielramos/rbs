@@ -30,6 +30,9 @@ class RBS::MethodTypeParsingTest < Test::Unit::TestCase
     puts parse_type("[]")
     puts parse_type("Array[String]")
     puts parse_type("Array[String?]?")
+    puts parse_type("^() -> void")
+    puts parse_type("^(String) -> void")
+    puts parse_type("^(String s) -> void")
   end
 
   def test_method_type

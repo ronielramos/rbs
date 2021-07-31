@@ -691,7 +691,7 @@ module RBS
 
         def to_s
           if name
-            if /\A#{Parser::KEYWORDS_RE}\z/.match?(name)
+            if Parser::Keywords.key?(name)
               "#{type} `#{name}`"
             else
               "#{type} #{name}"

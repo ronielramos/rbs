@@ -43,6 +43,7 @@ static const char *names[] = {
   "kSINGLETON",
   "kSELF",
   "kINSTANCE",
+  "kVOID",
 
   "tLIDENT",          /* Identifiers starting with lower case */
   "tUIDENT",          /* Identifiers starting with upper case */
@@ -54,6 +55,16 @@ static const char *names[] = {
   "tEQIDENT",
 };
 
+typedef struct {
+  VALUE required_positionals;
+  VALUE optional_positionals;
+  VALUE rest_positionals;
+  VALUE trailing_positionals;
+  VALUE required_keywords;
+  VALUE optional_keywords;
+  VALUE rest_keywords;
+} method_params;
+
 #define INTERN_TOKEN(parserstate, tok) rb_intern2(peek_token(parserstate->lexstate, tok), token_bytes(tok))
 
 static void print_token(token tok) {
@@ -62,7 +73,8 @@ static void print_token(token tok) {
 
 static void parser_advance(parserstate *state) {
   state->current_token = state->next_token;
-  state->next_token = rbsparser_next_token(state->lexstate);
+  state->next_token = state->next_token2;
+  state->next_token2 = rbsparser_next_token(state->lexstate);
 }
 
 static void parser_advance_assert(parserstate *state, enum TokenType type) {
@@ -126,6 +138,293 @@ static VALUE parse_type_list(parserstate *state, enum TokenType eol, VALUE types
   return types;
 }
 
+static bool is_keyword_token(enum TokenType type) {
+  switch (type)
+  {
+  case tLIDENT:
+  case tUIDENT:
+  case tULIDENT:
+  case kSINGLETON:
+  case kSELF:
+  case kINSTANCE:
+  case kVOID:
+    return true;
+  default:
+    return false;
+  }
+}
+
+/**
+ * ```
+ * ... type name , ...
+ *    >         >       before type => after name
+ * ```
+ *
+ * ```
+ *     ... type ) ...
+ *        >    >            before type => after type
+ * ```
+ * */
+static VALUE parse_function_param(parserstate *state) {
+  position start = state->next_token.start;
+  VALUE type = parse_type(state);
+
+  if (state->next_token.type == pCOMMA || state->next_token.type == pRPAREN) {
+    return rbs_function_param(
+      type,
+      Qnil,
+      rb_funcall(type, rb_intern("location"), 0)
+    );
+  } else {
+    parser_advance(state);
+    VALUE name = ID2SYM(INTERN_TOKEN(state, state->current_token));
+    VALUE location = rbs_location_pp(state->buffer, &start, &state->current_token.end);
+    return rbs_function_param(type, name, location);
+  }
+}
+
+/**
+ * ```
+ * ... keyword `:` type name , ...
+ *    ^                              start (before keyword token)
+ *                            ^      end   (after comma)
+ * ```
+ * */
+static void parse_required_keyword(parserstate *state, method_params *params) {
+  parser_advance(state);
+  VALUE keyword = ID2SYM(INTERN_TOKEN(state, state->current_token));
+  parser_advance_assert(state, pCOLON);
+  VALUE param = parse_function_param(state);
+  rb_hash_aset(params->required_keywords, keyword, param);
+
+  if (state->next_token.type == pCOMMA) {
+    parser_advance(state);
+  }
+
+  return;
+}
+
+/**
+ * ... `?` keyword `:` type name , ...
+ *        ^                              start (before keyword token)
+ *                                ^      end   (after comma)
+ * */
+static void parse_optional_keyword(parserstate *state, method_params *params) {
+  parser_advance(state);
+  VALUE keyword = ID2SYM(INTERN_TOKEN(state, state->current_token));
+  parser_advance_assert(state, pCOLON);
+  VALUE param = parse_function_param(state);
+  rb_hash_aset(params->optional_keywords, keyword, param);
+
+  if (state->next_token.type == pCOMMA) {
+    parser_advance(state);
+  }
+
+  return;
+}
+
+/**
+ *   ... keyword `:` param, ... `)`
+ *      >                      >
+ *   ... `?` keyword `:` param, ... `)`
+ *      >                          >
+ *   ... `**` type param `)`
+ *      >               >
+ *   ...  `)`
+ *      >>
+ * */
+static void parse_keywords(parserstate *state, method_params *params) {
+  while (true) {
+    switch (state->next_token.type) {
+    case pRPAREN:
+      return;
+    case pQUESTION:
+      parser_advance(state);
+      parse_optional_keyword(state, params);
+      break;
+    case pSTAR2:
+      parser_advance(state);
+      params->rest_keywords = parse_function_param(state);
+      return;
+    default:
+      parse_required_keyword(state, params);
+    }
+  }
+}
+
+/**
+ * ... type name, ...
+ *    >          >
+ *
+ * */
+static void parse_trailing_params(parserstate *state, method_params *params) {
+  while (true) {
+    if (state->next_token.type == pRPAREN) {
+      return;
+    }
+
+    if (state->next_token.type == pQUESTION) {
+      parser_advance(state);
+      parse_optional_keyword(state, params);
+      parse_keywords(state, params);
+      return;
+    }
+
+    if (state->next_token2.type == pSTAR2) {
+      parse_keywords(state, params);
+      return;
+    }
+
+    if (is_keyword_token(state->next_token.type)) {
+      if (state->next_token2.type == pCOLON) {
+        parse_keywords(state, params);
+        return;
+      }
+    }
+
+    VALUE param = parse_function_param(state);
+    rb_ary_push(params->trailing_positionals, param);
+
+    if (state->next_token.type == pCOMMA) {
+      parser_advance(state);
+    }
+  }
+}
+
+/**
+ * ... `?` Foo bar `,` ...
+ *    >               >
+ *
+ * */
+static void parse_optional_params(parserstate *state, method_params *params) {
+  while (true) {
+    if (state->next_token.type == pRPAREN) {
+      return;
+    }
+
+    if (state->next_token.type == pSTAR) {
+      parser_advance(state);
+      params->rest_positionals = parse_function_param(state);
+
+      if (state->next_token.type == pRPAREN) {
+        return;
+      } else {
+        parser_advance_assert(state, pCOMMA);
+        parse_trailing_params(state, params);
+        return;
+      }
+    }
+
+    if (state->next_token.type == pQUESTION) {
+      parser_advance(state);
+
+      if (is_keyword_token(state->next_token.type)) {
+        if (state->next_token2.type == pCOLON) {
+          parse_optional_keyword(state, params);
+          parse_keywords(state, params);
+          return;
+        }
+      }
+
+      VALUE param = parse_function_param(state);
+      rb_ary_push(params->optional_positionals, param);
+
+      if (state->next_token.type == pCOMMA) {
+        parser_advance(state);
+      }
+    } else {
+      parse_keywords(state, params);
+      return;
+    }
+  }
+}
+
+/**
+ *
+ * ... type name, type , ...
+ *    >          >      >
+ *
+ *
+ *
+ * */
+static void parse_required_params(parserstate *state, method_params *params) {
+  while (true) {
+    if (state->next_token.type == pRPAREN) {
+      return;
+    }
+
+    if (state->next_token.type == pSTAR) {
+      parser_advance(state);
+      params->rest_positionals = parse_function_param(state);
+
+      if (state->next_token.type == pRPAREN) {
+        return;
+      } else {
+        parser_advance_assert(state, pCOMMA);
+        parse_trailing_params(state, params);
+        return;
+      }
+    }
+
+    if (state->next_token.type == pSTAR2) {
+      parse_keywords(state, params);
+      return;
+    }
+
+    if (state->next_token.type == pQUESTION) {
+      parse_optional_params(state, params);
+      return;
+    }
+
+    VALUE param = parse_function_param(state);
+    rb_ary_push(params->required_positionals, param);
+
+    if (state->next_token.type == pCOMMA) {
+      parser_advance(state);
+    }
+  }
+}
+
+static void parse_params(parserstate *state, method_params *params) {
+  parse_required_params(state, params);
+}
+
+static VALUE parse_proc_type(parserstate *state) {
+  method_params params;
+  params.required_positionals = rb_ary_new();
+  params.optional_positionals = rb_ary_new();
+  params.rest_positionals = Qnil;
+  params.trailing_positionals = rb_ary_new();
+  params.required_keywords = rb_hash_new();
+  params.optional_keywords = rb_hash_new();
+  params.rest_keywords = Qnil;
+
+  position start = state->current_token.start;
+  parser_advance_assert(state, pLPAREN);
+
+  parse_params(state, &params);
+
+  parser_advance_assert(state, pRPAREN);
+  parser_advance_assert(state, pARROW);
+  VALUE type = parse_optional(state);
+  position end = state->current_token.end;
+
+  VALUE function = rbs_function(
+    params.required_positionals,
+    params.optional_positionals,
+    params.rest_positionals,
+    params.trailing_positionals,
+    params.required_keywords,
+    params.optional_keywords,
+    params.rest_keywords,
+    type
+  );
+
+  VALUE loc = rbs_location_pp(state->buffer, &start, &end);
+
+  return rbs_proc(function, Qnil, loc);
+}
+
 static VALUE parse_simple(parserstate *state) {
   parser_advance(state);
 
@@ -136,9 +435,9 @@ static VALUE parse_simple(parserstate *state) {
     return type;
   }
   case kSELF:
-    return rbs_self_type(
-      rbs_location_tok(state->buffer, &state->current_token)
-    );
+    return rbs_self_type(rbs_location_current_token(state));
+  case kVOID:
+    return rbs_void(rbs_location_current_token(state));
   case tUIDENT:
   case pCOLON2: {
     VALUE typename = parse_type_name(state);
@@ -185,6 +484,9 @@ static VALUE parse_simple(parserstate *state) {
     VALUE types = parse_type_list(state, pRBRACKET, rb_ary_new());
     parser_advance_assert(state, pRBRACKET);
     return rbs_tuple(types);
+  }
+  case pHAT: {
+    return parse_proc_type(state);
   }
   default:
     rb_raise(rb_eRuntimeError, "Parse error (parse_type)");
@@ -260,6 +562,7 @@ rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
   parser.buffer = buffer;
 
   parser_advance(&parser);
+  parser_advance(&parser);
   return parse_type(&parser);
 }
 
@@ -284,6 +587,11 @@ Init_parser(void)
   RBS_Types_Tuple = rb_const_get(RBS_Types, rb_intern("Tuple"));
   RBS_Types_Optional = rb_const_get(RBS_Types, rb_intern("Optional"));
   RBS_Location = rb_const_get(RBS, rb_intern("Location"));
+  RBS_Types_Function = rb_const_get(RBS_Types, rb_intern("Function"));
+  RBS_Types_Function_Param = rb_const_get(RBS_Types_Function, rb_intern("Param"));
+  RBS_Types_Block = rb_const_get(RBS_Types, rb_intern("Block"));
+  RBS_Types_Proc = rb_const_get(RBS_Types, rb_intern("Proc"));
+  RBS_Types_Bases_Void = rb_const_get(RBS_Types_Bases, rb_intern("Void"));
 
   sym_class = ID2SYM(rb_intern_const("class"));
   sym_interface = ID2SYM(rb_intern_const("interface"));
@@ -293,6 +601,7 @@ Init_parser(void)
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("singleton"), INT2FIX(kSINGLETON));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("self"), INT2FIX(kSELF));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("instance"), INT2FIX(kINSTANCE));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("void"), INT2FIX(kVOID));
   rb_define_const(RBSParser, "Keywords", rbsparser_Keywords);
 
   rb_define_singleton_method(RBSParser, "_parse_type", rbsparser_parse_type, 3);
