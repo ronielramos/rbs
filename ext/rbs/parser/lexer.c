@@ -221,6 +221,8 @@ token rbsparser_next_token(lexstate *state) {
     case '\n':
       // nop
       break;
+    case '\0':
+      return next_token(state, pEOF, start);
     default:
       skipping = false;
       break;
@@ -228,6 +230,7 @@ token rbsparser_next_token(lexstate *state) {
   }
 
   switch (c) {
+    case '\0': tok = next_token(state, pEOF, start);
     ONE_CHAR_PATTERN('(', pLPAREN);
     ONE_CHAR_PATTERN(')', pRPAREN);
     ONE_CHAR_PATTERN('[', pLBRACKET);

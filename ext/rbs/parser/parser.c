@@ -13,6 +13,8 @@ static VALUE sym_interface;
 
 static const char *names[] = {
   "NullType",
+  "pEOF",
+
   "pLPAREN",
   "pRPAREN",
   "pCOLON",
@@ -81,17 +83,31 @@ static void print_token(token tok) {
   printf("%s char=%d...%d\n", names[tok.type], tok.start.char_pos, tok.end.char_pos);
 }
 
+static void print_parser(parserstate *state) {
+  pp(state->buffer);
+  printf("  current_token = %s (%d...%d)\n", names[state->current_token.type], state->current_token.start.char_pos, state->current_token.end.char_pos);
+  printf("     next_token = %s (%d...%d)\n", names[state->next_token.type], state->next_token.start.char_pos, state->next_token.end.char_pos);
+  printf("    next_token2 = %s (%d...%d)\n", names[state->next_token2.type], state->next_token2.start.char_pos, state->next_token2.end.char_pos);
+}
+
 static void parser_advance(parserstate *state) {
   state->current_token = state->next_token;
   state->next_token = state->next_token2;
-  state->next_token2 = rbsparser_next_token(state->lexstate);
+  if (state->next_token2.type != pEOF) {
+    state->next_token2 = rbsparser_next_token(state->lexstate);
+  }
 }
 
 static void parser_advance_assert(parserstate *state, enum TokenType type) {
   parser_advance(state);
   if (state->current_token.type != type) {
     print_token(state->current_token);
-    rb_raise(rb_eRuntimeError, "Unexpected token");
+    rb_raise(
+      rb_eRuntimeError,
+      "Unexpected token: expected=%s, actual=%s",
+      names[type],
+      names[state->current_token.type]
+    );
   }
 }
 
@@ -526,7 +542,7 @@ static VALUE parse_simple(parserstate *state) {
     return parse_proc_type(state);
   }
   default:
-    rb_raise(rb_eRuntimeError, "Parse error (parse_type)");
+    rb_raise(rb_eRuntimeError, "Parse error in parse_simple: %s", names[state->current_token.type]);
   }
 }
 
@@ -582,6 +598,9 @@ rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
 
   parserstate parser = { &lex };
   parser.buffer = buffer;
+  parser.current_token = NullToken;
+  parser.next_token = NullToken;
+  parser.next_token2 = NullToken;
 
   parser_advance(&parser);
   parser_advance(&parser);
