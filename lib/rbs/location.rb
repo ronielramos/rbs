@@ -4,15 +4,23 @@ module RBS
     attr_reader :start_pos
     attr_reader :end_pos
 
-    def initialize(buffer:, start_pos:, end_pos:)
+    def initialize(buffer, start_pos, end_pos)
       @buffer = buffer
       @start_pos = start_pos
       @end_pos = end_pos
     end
 
-    def inspect
-      "#<#{self.class}:#{self.__id__} @buffer=#{buffer.name}, @pos=#{start_pos}...#{end_pos}, source='#{source.lines.first}', start_line=#{start_line}, start_column=#{start_column}>"
+    def self.new(buffer_ = nil, start_pos_ = nil, end_pos_ = nil, buffer: nil, start_pos: nil, end_pos: nil)
+      buffer_ ||= buffer
+      start_pos_ ||= start_pos
+      end_pos_ ||= end_pos
+
+      __skip__ = super(buffer_, start_pos_, end_pos_)
     end
+
+    # def inspect
+    #   "#<#{self.class}:#{self.__id__} @buffer=#{buffer.name}, @pos=#{start_pos}...#{end_pos}, source='#{source.lines.first}', start_line=#{start_line}, start_column=#{start_column}>"
+    # end
 
     def name
       buffer.name
@@ -147,8 +155,8 @@ module RBS
     class WithChildren < Location
       attr_reader :required_children, :optional_children
 
-      def initialize(buffer:, start_pos:, end_pos:)
-        super(buffer: buffer, start_pos: start_pos, end_pos: end_pos)
+      def initialize(buffer, start_pos, end_pos)
+        super(buffer, start_pos, end_pos)
 
         @optional_children = {}
         @required_children = {}

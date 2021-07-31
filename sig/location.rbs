@@ -11,7 +11,10 @@ module RBS
     # The index of character the range ends at.
     attr_reader end_pos: Integer
 
-    def initialize: (buffer: Buffer, start_pos: Integer, end_pos: Integer) -> void
+    def initialize: (Buffer, Integer, Integer) -> void
+
+    def self.new: (buffer: Buffer, start_pos: Integer, end_pos: Integer) -> instance
+                | (Buffer, Integer, Integer) -> instance
 
     def inspect: () -> String
 
@@ -111,6 +114,8 @@ module RBS
       def initialize: ...
 
       def initialize_copy: ...
+
+      def self.new: ...
 
       # Returns `Location` instance for given _child_ name.
       #

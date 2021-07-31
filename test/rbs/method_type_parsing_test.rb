@@ -8,8 +8,28 @@ class RBS::MethodTypeParsingTest < Test::Unit::TestCase
   Namespace = RBS::Namespace
   Location = RBS::Location
 
+  def parse_type(string)
+    buffer = Buffer.new(content: string, name: "sample.rbs")
+    RBS::Parser._parse_type(buffer, 1, 0)
+  end
+
   def test_tokenizer
-    RBS::Parser.parse_type("(==)", "foo.rbs", 1, 0)
+    parse_type("self").tap do |type|
+      assert_instance_of Types::Bases::Self, type
+      assert_equal "self", type.location.source
+    end
+    puts parse_type("::Object::Array")
+    puts parse_type("::Object::_Each")
+    puts parse_type("::Object::Types::t")
+    puts parse_type("singleton(::Object)")
+    puts parse_type("t & s | u & a")
+    puts parse_type("t | s | u & a")
+    puts parse_type("t & s | (u | a)")
+    puts parse_type("[a, B]")
+    puts parse_type("[a,]")
+    puts parse_type("[]")
+    puts parse_type("Array[String]")
+    puts parse_type("Array[String?]?")
   end
 
   def test_method_type
