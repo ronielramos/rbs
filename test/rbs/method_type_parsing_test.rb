@@ -9,17 +9,20 @@ class RBS::MethodTypeParsingTest < Test::Unit::TestCase
   Location = RBS::Location
 
   def parse_type(string)
-    buffer = Buffer.new(content: string, name: "sample.rbs")
+    buffer = Buffer.new(content: string.encode(Encoding::UTF_8), name: "sample.rbs")
     RBS::Parser._parse_type(buffer, 1, 0)
   end
 
   def test_tokenizer
-    puts parse_type(<<EOF)
-Array[
-  # LINE Comment here!
-  String # comment here.
-]
-EOF
+#     puts parse_type(<<EOF)
+# Array[
+#   # LINE Comment here!
+#   String # comment here.
+#   ,
+#   :foo,
+#   :"日本語"
+# ]
+# EOF
     parse_type("self").tap do |type|
       assert_instance_of Types::Bases::Self, type
       assert_equal "self", type.location.source
@@ -44,6 +47,43 @@ EOF
     puts parse_type("['foo', 'foo\"bar', 'ba\\'z']")
     puts parse_type('["foo", "foo\"bar", "ba\\tz"]')
     puts parse_type('"ba\\tz"').literal
+    puts parse_type(<<'TYPE')
+[
+  :foo,
+  :$bar,
+  :@bar,
+  :@barbaz
+  :__bar,
+  :"日本語",
+  :|,
+  :&,
+  :/,
+  :%,
+  :~,
+  :`,
+  :^,
+  :==,
+  :=~,
+  :===,
+  :<=>,
+  :<<,
+  :<=,
+  :<,
+  :>>,
+  :>=,
+  :>,
+  :+@,
+  :+,
+  :-@,
+  :-,
+  :*,
+  :**,
+  :[]=,
+  :[],
+  :!=,
+  :!~,
+]
+TYPE
   end
 
   def test_method_type

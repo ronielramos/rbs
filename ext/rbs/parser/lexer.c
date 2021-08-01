@@ -13,6 +13,22 @@
 token NullToken = { NullType };
 position NullPosition = { 0 };
 
+unsigned int peekn(lexstate *state, unsigned int chars[], size_t length) {
+  int byteoffset = 0;
+
+  rb_encoding *encoding = rb_enc_get(state->string);
+  char *start = RSTRING_PTR(state->string) + state->current.byte_pos;
+  char *end = RSTRING_END(state->string);
+
+  for (size_t i = 0; i < length; i++)
+  {
+    chars[i] = rb_enc_mbc_to_codepoint(start + byteoffset, end, encoding);
+    byteoffset += rb_enc_codelen(chars[i], rb_enc_get(state->string));
+  }
+
+  return byteoffset;
+}
+
 int token_chars(token tok) {
   return tok.end.char_pos - tok.start.char_pos;
 }
@@ -61,17 +77,6 @@ void skipbyte(lexstate *state, unsigned int c, int len) {
 void skip(lexstate *state, unsigned int c) {
   int len = rb_enc_codelen(c, rb_enc_get(state->string));
   skipbyte(state, c, len);
-}
-
-static token lex_colon(lexstate *state, position start) {
-  unsigned int c = peek(state);
-
-  if (c == ':') {
-    skipbyte(state, c, 1);
-    return next_token(state, pCOLON2, start);
-  } else {
-    return next_token(state, pCOLON, start);
-  }
 }
 
 /*
@@ -313,6 +318,37 @@ static token lex_dqstring(lexstate *state, position start) {
 }
 
 /*
+   ... @ foo ...
+      ^             start
+        ^           current
+            ^       current (return)
+
+   ... @ @ foo ...
+      ^               start
+        ^             current
+              ^       current (return)
+*/
+static token lex_ivar(lexstate *state, position start) {
+  unsigned int c;
+
+  enum TokenType type = tAIDENT;
+
+  c = peek(state);
+
+  if (c == '@') {
+    type = tA2IDENT;
+    skip(state, c);
+  }
+
+  while (rb_isalnum(c) || c == '_') {
+    skip(state, c);
+    c = peek(state);
+  }
+
+  return next_token(state, type, start);
+}
+
+/*
    ... ' ... ' ...
       ^               start
         ^             current
@@ -340,6 +376,158 @@ static token lex_sqstring(lexstate *state, position start) {
   }
 
   return next_token(state, tSQSTRING, start);
+}
+
+#define EQPOINTS2(c0, c1, s) (c0 == s[0] && c1 == s[1])
+#define EQPOINTS3(c0, c1, c2, s) (c0 == s[0] && c1 == s[1] && c2 == s[2])
+
+/*
+   ... : @ ...
+      ^          start
+        ^        current
+          ^      current (return)
+*/
+static token lex_colon_symbol(lexstate *state, position start) {
+  unsigned int c[3];
+  peekn(state, c, 3);
+
+  switch (c[0]) {
+    case '|':
+    case '&':
+    case '/':
+    case '%':
+    case '~':
+    case '`':
+    case '^':
+      skip(state, c[0]);
+      return next_token(state, tSYMBOL, start);
+    case '=':
+      if (EQPOINTS2(c[0], c[1], "=~")) {
+        // :=~
+        skip(state, c[0]);
+        skip(state, c[1]);
+        return next_token(state, tSYMBOL, start);
+      } else if (EQPOINTS3(c[0], c[1], c[2], "===")) {
+        // :===
+        skip(state, c[0]);
+        skip(state, c[1]);
+        skip(state, c[2]);
+        return next_token(state, tSYMBOL, start);
+      } else if (EQPOINTS2(c[0], c[1], "==")) {
+        // :==
+        skip(state, c[0]);
+        skip(state, c[1]);
+        return next_token(state, tSYMBOL, start);
+      }
+      break;
+    case '<':
+      printf("%c %c %c\n", c[0], c[1], c[2]);
+      if (EQPOINTS3(c[0], c[1], c[2], "<=>")) {
+        skip(state, c[0]);
+        skip(state, c[1]);
+        skip(state, c[2]);
+      } else if (EQPOINTS2(c[0], c[1], "<=") || EQPOINTS2(c[0], c[1], "<<")) {
+        skip(state, c[0]);
+        skip(state, c[1]);
+      } else {
+        skip(state, c[0]);
+      }
+      return next_token(state, tSYMBOL, start);
+    case '>':
+      if (EQPOINTS2(c[0], c[1], ">=") || EQPOINTS2(c[0], c[1], ">>")) {
+        skip(state, c[0]);
+        skip(state, c[1]);
+      } else {
+        skip(state, c[0]);
+      }
+      return next_token(state, tSYMBOL, start);
+    case '-':
+    case '+':
+      if (EQPOINTS2(c[0], c[1], "+@") || EQPOINTS2(c[0], c[1], "-@")) {
+        skip(state, c[0]);
+        skip(state, c[1]);
+      } else {
+        skip(state, c[0]);
+      }
+      return next_token(state, tSYMBOL, start);
+    case '*':
+      if (EQPOINTS2(c[0], c[1], "**")) {
+        skip(state, c[0]);
+        skip(state, c[1]);
+      } else {
+        skip(state, c[0]);
+      }
+      return next_token(state, tSYMBOL, start);
+    case '[':
+      if (EQPOINTS3(c[0], c[1], c[2], "[]=")) {
+        skip(state, c[0]);
+        skip(state, c[1]);
+        skip(state, c[2]);
+      } else if (EQPOINTS2(c[0], c[1], "[]")) {
+        skip(state, c[0]);
+        skip(state, c[1]);
+      } else {
+        break;
+      }
+      return next_token(state, tSYMBOL, start);
+    case '!':
+      if (EQPOINTS2(c[0], c[1], "!=") || EQPOINTS2(c[0], c[1], "!~")) {
+        skip(state, c[0]);
+        skip(state, c[1]);
+      } else {
+        break;
+      }
+      return next_token(state, tSYMBOL, start);
+    case '@':
+      skip(state, '@');
+      lex_ivar(state, start);
+      return next_token(state, tSYMBOL, start);
+    case '$':
+      skip(state, '$');
+      lex_global(state, start);
+      return next_token(state, tSYMBOL, start);
+    case '\'':
+      skip(state, '\'');
+      lex_sqstring(state, start);
+      return next_token(state, tSYMBOL, start);
+    case '"':
+      skip(state, '"');
+      lex_dqstring(state, start);
+      return next_token(state, tSYMBOL, start);
+    default:
+      if (rb_isalpha(c[0]) || c[0] == '_') {
+        lex_ident(state, start, NullType);
+
+        if (peek(state) == '?') {
+          skip(state, '?');
+        }
+
+        return next_token(state, tSYMBOL, start);
+      }
+  }
+
+  return next_token(state, pCOLON, start);
+}
+
+/*
+   ... : : ...
+      ^          start
+        ^        current
+          ^      current (return)
+
+   ... :   ...
+      ^          start
+        ^        current (lex_colon_symbol)
+*/
+static token lex_colon(lexstate *state, position start) {
+  unsigned int c = peek(state);
+
+  if (c == ':') {
+    skipbyte(state, c, 1);
+    return next_token(state, pCOLON2, start);
+  } else {
+    return lex_colon_symbol(state, start);
+  }
 }
 
 token rbsparser_next_token(lexstate *state) {
@@ -416,6 +604,8 @@ token rbsparser_next_token(lexstate *state) {
     case '$':
       tok = lex_global(state, start);
       break;
+    case '@':
+      tok = lex_ivar(state, start);
     case '"':
       tok = lex_dqstring(state, start);
       break;

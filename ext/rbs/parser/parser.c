@@ -1,4 +1,5 @@
 #include "parser.h"
+#include "ruby/internal/symbol.h"
 
 VALUE rbsparser_Keywords;
 
@@ -84,7 +85,12 @@ typedef struct {
   VALUE rest_keywords;
 } method_params;
 
-#define INTERN_TOKEN(parserstate, tok) rb_intern2(peek_token(parserstate->lexstate, tok), token_bytes(tok))
+#define INTERN_TOKEN(parserstate, tok) \
+  rb_intern3(\
+    peek_token(parserstate->lexstate, tok),\
+    token_bytes(tok),\
+    rb_enc_get(parserstate->lexstate->string)\
+  )
 
 static VALUE parse_optional(parserstate *state);
 static VALUE parse_simple(parserstate *state);
@@ -505,6 +511,33 @@ static VALUE parse_proc_type(parserstate *state) {
   return rbs_proc(function, Qnil, loc);
 }
 
+static VALUE parse_symbol(parserstate *state) {
+  VALUE string = state->lexstate->string;
+  rb_encoding *enc = rb_enc_get(string);
+
+  int offset_bytes = rb_enc_codelen(':', enc);
+  int bytes = token_bytes(state->current_token) - offset_bytes;
+
+  unsigned int first_char = rb_enc_mbc_to_codepoint(
+    RSTRING_PTR(string) + state->current_token.start.byte_pos + offset_bytes,
+    RSTRING_END(string),
+    enc
+  );
+
+  if (first_char == '"' || first_char == '\'') {
+    int bs = rb_enc_codelen(first_char, enc);
+    offset_bytes += bs;
+    bytes -= 2 * bs;
+  }
+
+  char *buffer = peek_token(state->lexstate, state->current_token);
+  VALUE literal = ID2SYM(rb_intern3(buffer+offset_bytes, bytes, enc));
+  return rbs_literal(
+    literal,
+    rbs_location_current_token(state)
+  );
+}
+
 static VALUE parse_simple(parserstate *state) {
   parser_advance(state);
 
@@ -558,6 +591,9 @@ static VALUE parse_simple(parserstate *state) {
       rb_funcall(literal, rb_intern("undump"), 0),
       rbs_location_current_token(state)
     );
+  }
+  case tSYMBOL: {
+    return parse_symbol(state);
   }
   case tUIDENT:
   case pCOLON2: {
