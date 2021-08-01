@@ -717,7 +717,13 @@ static VALUE parse_simple(parserstate *state) {
   case tSYMBOL: {
     return parse_symbol(state);
   }
-  case tUIDENT:
+  case tUIDENT: {
+    ID name = INTERN_TOKEN(state, state->current_token);
+    if (parser_id_member(state, name)) {
+      return rbs_variable(ID2SYM(name), rbs_location_current_token(state));
+    }
+    // fallthrough for type name
+  }
   case pCOLON2: {
     VALUE typename = parse_type_name(state);
     VALUE types = rb_ary_new();
@@ -822,6 +828,58 @@ VALUE parse_type(parserstate *state) {
   return type;
 }
 
+/*
+   ... `[` vars `]` function ...
+      ^
+                            ^
+*/
+static VALUE parse_method_type(parserstate *state){
+  VALUE function = Qnil;
+  VALUE block = Qnil;
+  id_table *table = parser_push_table(state);
+
+  position start = state->next_token.start;
+
+  if (state->next_token.type == pLBRACKET) {
+    parser_advance(state);
+
+    while (true) {
+      parser_advance_assert(state, tUIDENT);
+      ID name = INTERN_TOKEN(state, state->current_token);
+      parser_insert_id(state, name);
+
+      if (state->next_token.type == pCOMMA) {
+        parser_advance(state);
+        if (state->next_token.type == pRBRACKET) {
+          break;
+        }
+      } else {
+        break;
+      }
+    }
+
+    parser_advance_assert(state, pRBRACKET);
+  }
+
+  parse_function(state, &function, &block);
+
+  position end = state->current_token.end;
+
+  VALUE type_params = rb_ary_new();
+  for (size_t i = 0; i < table->count; i++) {
+    rb_ary_push(type_params, ID2SYM(table->ids[i]));
+  }
+
+  parser_pop_table(state);
+
+  return rbs_method_type(
+    type_params,
+    function,
+    block,
+    rbs_location_pp(state->buffer, &start, &end)
+  );
+}
+
 static VALUE
 rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
 {
@@ -840,6 +898,26 @@ rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
   parser_advance(&parser);
   parser_advance(&parser);
   return parse_type(&parser);
+}
+
+static VALUE
+rbsparser_parse_method_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
+{
+  VALUE string = rb_funcall(buffer, rb_intern("content"), 0);
+  lexstate lex = { string };
+  lex.current.line = NUM2INT(line);
+  lex.current.column = NUM2INT(column);
+  lex.first_token_of_line = column == 0;
+
+  parserstate parser = { &lex };
+  parser.buffer = buffer;
+  parser.current_token = NullToken;
+  parser.next_token = NullToken;
+  parser.next_token2 = NullToken;
+
+  parser_advance(&parser);
+  parser_advance(&parser);
+  return parse_method_type(&parser);
 }
 
 void
@@ -877,6 +955,8 @@ Init_parser(void)
   RBS_Types_Record = rb_const_get(RBS_Types, rb_intern("Record"));
   RBS_Types_Tuple = rb_const_get(RBS_Types, rb_intern("Tuple"));
   RBS_Types_Union = rb_const_get(RBS_Types, rb_intern("Union"));
+  RBS_Types_Variable = rb_const_get(RBS_Types, rb_intern("Variable"));
+  RBS_MethodType = rb_const_get(RBS, rb_intern("MethodType"));
 
   sym_class = ID2SYM(rb_intern_const("class"));
   sym_interface = ID2SYM(rb_intern_const("interface"));
@@ -899,4 +979,5 @@ Init_parser(void)
   rb_define_const(RBSParser, "KEYWORDS", rbsparser_Keywords);
 
   rb_define_singleton_method(RBSParser, "_parse_type", rbsparser_parse_type, 3);
+  rb_define_singleton_method(RBSParser, "_parse_method_type", rbsparser_parse_method_type, 3);
 }

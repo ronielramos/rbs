@@ -84,12 +84,20 @@ typedef struct {
   bool first_token_of_line;
 } lexstate;
 
+typedef struct id_table {
+  size_t size;
+  size_t count;
+  ID *ids;
+  struct id_table *next;
+} id_table;
+
 typedef struct {
   lexstate *lexstate;
   token current_token;
   token next_token;
   token next_token2;
   VALUE buffer;
+  id_table *vars;
 } parserstate;
 
 extern token NullToken;
@@ -135,7 +143,9 @@ extern VALUE RBS_Types_Proc;
 extern VALUE RBS_Types_Record;
 extern VALUE RBS_Types_Tuple;
 extern VALUE RBS_Types_Union;
+extern VALUE RBS_Types_Variable;
 extern VALUE RBS_Types;
+extern VALUE RBS_MethodType;
 
 VALUE rbs_base_type(VALUE klass, VALUE location);
 VALUE rbs_namespace(VALUE path, VALUE absolute);
@@ -158,5 +168,13 @@ VALUE rbs_block(VALUE type, VALUE required);
 VALUE rbs_proc(VALUE function, VALUE block, VALUE location);
 VALUE rbs_literal(VALUE literal, VALUE location);
 VALUE rbs_record(VALUE fields, VALUE location);
+VALUE rbs_variable(VALUE name, VALUE location);
+
+VALUE rbs_method_type(VALUE type_params, VALUE type, VALUE block, VALUE location);
 
 void rbs_unescape_string(VALUE string);
+
+id_table *parser_push_table(parserstate *state);
+void parser_insert_id(parserstate *state, ID id);
+bool parser_id_member(parserstate *state, ID id);
+void parser_pop_table(parserstate *state);

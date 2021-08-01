@@ -13,6 +13,11 @@ class RBS::MethodTypeParsingTest < Test::Unit::TestCase
     RBS::Parser._parse_type(buffer, 1, 0)
   end
 
+  def parse_method_type(string)
+    buffer = Buffer.new(content: string.encode(Encoding::UTF_8), name: "sample.rbs")
+    RBS::Parser._parse_method_type(buffer, 1, 0)
+  end
+
   def test_tokenizer
 #     puts parse_type(<<EOF)
 # Array[
@@ -89,6 +94,11 @@ TYPE
 
     puts parse_type('^() -> void')
     puts parse_type('^{ (String) -> untyped? } -> void')
+  end
+
+  def test_method_type___123
+    puts parse_method_type("() -> String")
+    puts parse_method_type("[A] () { () -> A } -> Array[A]")
   end
 
   def test_method_type

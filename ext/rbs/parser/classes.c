@@ -28,7 +28,9 @@ VALUE RBS_Types_Proc;
 VALUE RBS_Types_Record;
 VALUE RBS_Types_Tuple;
 VALUE RBS_Types_Union;
+VALUE RBS_Types_Variable;
 VALUE RBS_Types;
+VALUE RBS_MethodType;
 
 VALUE rbs_base_type(VALUE klass, VALUE location) {
   VALUE args = rb_hash_new();
@@ -315,6 +317,36 @@ VALUE rbs_record(VALUE fields, VALUE location) {
 
   return rb_funcallv_kw(
     RBS_Types_Record,
+    rb_intern("new"),
+    1,
+    &args,
+    RB_PASS_KEYWORDS
+  );
+}
+
+VALUE rbs_variable(VALUE name, VALUE location) {
+  VALUE args = rb_hash_new();
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
+  rb_hash_aset(args, ID2SYM(rb_intern("name")), name);
+
+  return rb_funcallv_kw(
+    RBS_Types_Variable,
+    rb_intern("new"),
+    1,
+    &args,
+    RB_PASS_KEYWORDS
+  );
+}
+
+VALUE rbs_method_type(VALUE type_params, VALUE type, VALUE block, VALUE location) {
+  VALUE args = rb_hash_new();
+  rb_hash_aset(args, ID2SYM(rb_intern("type_params")), type_params);
+  rb_hash_aset(args, ID2SYM(rb_intern("type")), type);
+  rb_hash_aset(args, ID2SYM(rb_intern("block")), block);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
+
+  return rb_funcallv_kw(
+    RBS_MethodType,
     rb_intern("new"),
     1,
     &args,
