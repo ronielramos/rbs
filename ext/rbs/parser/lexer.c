@@ -282,6 +282,66 @@ static token lex_comment(lexstate *state, position start, enum TokenType type) {
   return tok;
 }
 
+/*
+   ... " ... " ...
+      ^               start
+        ^             current
+              ^       current (after)
+*/
+static token lex_dqstring(lexstate *state, position start) {
+  unsigned int c;
+
+  c = peek(state);
+
+  if (c != '"') {
+    while (true) {
+      c = peek(state);
+      skip(state, c);
+
+      if (c == '\\') {
+        if (peek(state) == '"') {
+          skip(state, c);
+          c = peek(state);
+        }
+      } else if (c == '"') {
+        break;
+      }
+    }
+  }
+
+  return next_token(state, tDQSTRING, start);
+}
+
+/*
+   ... ' ... ' ...
+      ^               start
+        ^             current
+              ^       current (after)
+*/
+static token lex_sqstring(lexstate *state, position start) {
+  unsigned int c;
+
+  c = peek(state);
+
+  if (c != '\'') {
+    while (true) {
+      c = peek(state);
+      skip(state, c);
+
+      if (c == '\\') {
+        if (peek(state) == '\'') {
+          skip(state, c);
+          c = peek(state);
+        }
+      } else if (c == '\'') {
+        break;
+      }
+    }
+  }
+
+  return next_token(state, tSQSTRING, start);
+}
+
 token rbsparser_next_token(lexstate *state) {
   token tok = NullToken;
   position start = NullPosition;
@@ -355,6 +415,12 @@ token rbsparser_next_token(lexstate *state) {
       break;
     case '$':
       tok = lex_global(state, start);
+      break;
+    case '"':
+      tok = lex_dqstring(state, start);
+      break;
+    case '\'':
+      tok = lex_sqstring(state, start);
       break;
     default:
       if (rb_isalpha(c) && rb_isupper(c)) {

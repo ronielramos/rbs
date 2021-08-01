@@ -97,6 +97,14 @@ static VALUE string_of_loc(parserstate *state, position start, position end) {
   );
 }
 
+static VALUE string_of_bytepos(parserstate *state, int byte_start, int byte_end) {
+  return rb_enc_str_new(
+    RSTRING_PTR(state->lexstate->string) + byte_start,
+      byte_end - byte_start,
+      rb_enc_get(state->lexstate->string)
+  );
+}
+
 static void print_token(token tok) {
   printf("%s char=%d...%d\n", names[tok.type], tok.start.char_pos, tok.end.char_pos);
 }
@@ -537,6 +545,20 @@ static VALUE parse_simple(parserstate *state) {
     return rbs_literal(Qtrue, rbs_location_current_token(state));
   case kFALSE:
     return rbs_literal(Qfalse, rbs_location_current_token(state));
+  case tSQSTRING: {
+    VALUE literal = string_of_bytepos(state, state->current_token.start.byte_pos + 1, state->current_token.end.byte_pos - 1);
+    return rbs_literal(
+      literal,
+      rbs_location_current_token(state)
+    );
+  }
+  case tDQSTRING: {
+    VALUE literal = string_of_loc(state, state->current_token.start, state->current_token.end);
+    return rbs_literal(
+      rb_funcall(literal, rb_intern("undump"), 0),
+      rbs_location_current_token(state)
+    );
+  }
   case tUIDENT:
   case pCOLON2: {
     VALUE typename = parse_type_name(state);

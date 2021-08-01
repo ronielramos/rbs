@@ -41,6 +41,9 @@ EOF
     puts parse_type("^(String s) -> void")
     puts parse_type("[123, +12_23, -1234_]")
     puts parse_type("true | false")
+    puts parse_type("['foo', 'foo\"bar', 'ba\\'z']")
+    puts parse_type('["foo", "foo\"bar", "ba\\tz"]')
+    puts parse_type('"ba\\tz"').literal
   end
 
   def test_method_type
