@@ -156,28 +156,6 @@ static void parser_advance_assert(parserstate *state, enum TokenType type) {
   }
 }
 
-/*
-  Unescape escape sequences:
-    '\\n' => "\n"
-*/
-static void unescape_string(VALUE string) {
-  char *r = "\\\\[abefnrstv\"]";
-  VALUE regexp = rb_reg_new(r, strlen(r), 0);
-
-  VALUE hash = rb_hash_new();
-  rb_hash_aset(hash, rb_str_new_literal("\\a"), rb_str_new_literal("\a"));
-  rb_hash_aset(hash, rb_str_new_literal("\\b"), rb_str_new_literal("\b"));
-  rb_hash_aset(hash, rb_str_new_literal("\\e"), rb_str_new_literal("\e"));
-  rb_hash_aset(hash, rb_str_new_literal("\\f"), rb_str_new_literal("\f"));
-  rb_hash_aset(hash, rb_str_new_literal("\\n"), rb_str_new_literal("\n"));
-  rb_hash_aset(hash, rb_str_new_literal("\\r"), rb_str_new_literal("\r"));
-  rb_hash_aset(hash, rb_str_new_literal("\\s"), rb_str_new_literal(" "));
-  rb_hash_aset(hash, rb_str_new_literal("\\t"), rb_str_new_literal("\t"));
-  rb_hash_aset(hash, rb_str_new_literal("\\v"), rb_str_new_literal("\v"));
-  rb_hash_aset(hash, rb_str_new_literal("\\\""), rb_str_new_literal("\""));
-
-  rb_funcall(string, rb_intern("gsub!"), 2, regexp, hash);
-}
 
 static void __attribute__((noreturn)) raise_syntax_error() {
   rb_raise(rb_eRuntimeError, "Syntax error");
@@ -608,7 +586,7 @@ static VALUE parse_symbol(parserstate *state) {
     VALUE string = rb_enc_str_new(buffer+offset_bytes, bytes, enc);
 
     if (first_char == '\"') {
-      unescape_string(string);
+      rbs_unescape_string(string);
     }
     literal = rb_funcall(string, rb_intern("to_sym"), 0);
   } else {
@@ -671,7 +649,7 @@ static VALUE parse_simple(parserstate *state) {
   }
   case tDQSTRING: {
     VALUE literal = string_of_loc(state, state->current_token.start, state->current_token.end);
-    unescape_string(literal);
+    rbs_unescape_string(literal);
     return rbs_literal(
       literal,
       rbs_location_current_token(state)

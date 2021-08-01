@@ -158,3 +158,5 @@ VALUE rbs_block(VALUE type, VALUE required);
 VALUE rbs_proc(VALUE function, VALUE block, VALUE location);
 VALUE rbs_literal(VALUE literal, VALUE location);
 VALUE rbs_record(VALUE fields, VALUE location);
+
+void rbs_unescape_string(VALUE string);
