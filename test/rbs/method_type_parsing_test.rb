@@ -14,6 +14,12 @@ class RBS::MethodTypeParsingTest < Test::Unit::TestCase
   end
 
   def test_tokenizer
+    puts parse_type(<<EOF)
+Array[
+  # LINE Comment here!
+  String # comment here.
+]
+EOF
     parse_type("self").tap do |type|
       assert_instance_of Types::Bases::Self, type
       assert_equal "self", type.location.source
@@ -33,6 +39,7 @@ class RBS::MethodTypeParsingTest < Test::Unit::TestCase
     puts parse_type("^() -> void")
     puts parse_type("^(String) -> void")
     puts parse_type("^(String s) -> void")
+    puts parse_type("[123, +12_23, -1234_]")
   end
 
   def test_method_type

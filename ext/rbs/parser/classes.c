@@ -29,7 +29,7 @@ VALUE RBS_Types_Function;
 VALUE RBS_Types_Function_Param;
 VALUE RBS_Types_Block;
 VALUE RBS_Types_Proc;
-
+VALUE RBS_Types_Literal;
 
 VALUE rbs_base_type(VALUE klass, VALUE location) {
   VALUE args = rb_hash_new();
@@ -288,6 +288,20 @@ VALUE rbs_void(VALUE location) {
 
   return rb_funcallv_kw(
     RBS_Types_Bases_Void,
+    rb_intern("new"),
+    1,
+    &args,
+    RB_PASS_KEYWORDS
+  );
+}
+
+VALUE rbs_literal(VALUE literal, VALUE location) {
+  VALUE args = rb_hash_new();
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
+  rb_hash_aset(args, ID2SYM(rb_intern("literal")), literal);
+
+  return rb_funcallv_kw(
+    RBS_Types_Literal,
     rb_intern("new"),
     1,
     &args,

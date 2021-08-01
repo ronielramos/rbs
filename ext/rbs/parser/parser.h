@@ -52,6 +52,15 @@ enum TokenType {
   tA2IDENT,         /* Identifiers starting with `@@` */
   tBANGIDENT,       /* Identifiers ending with `!` */
   tEQIDENT,         /* Identifiers ending with `=` */
+  tQIDENT,          /* Quoted identifier */
+
+  tCOMMENT,         /* Comment */
+  tLINECOMMENT,     /* Comment of all line */
+
+  tDQSTRING,        /* Double quoted string */
+  tSQSTRING,        /* Single quoted string */
+  tINTEGER,         /* Integer */
+  tSYMBOL,          /* Symbol */
 };
 
 typedef struct {
@@ -70,6 +79,7 @@ typedef struct {
 typedef struct {
   VALUE string;
   position current;
+  bool first_token_of_line;
 } lexstate;
 
 typedef struct {
@@ -115,6 +125,7 @@ extern VALUE RBS_Types_Intersection;
 extern VALUE RBS_Types_ClassSingleton;
 extern VALUE RBS_Types_Tuple;
 extern VALUE RBS_Types_Optional;
+extern VALUE RBS_Types_Literal;
 extern VALUE RBS_Namespace;
 extern VALUE RBS_TypeName;
 extern VALUE RBS_Location;
@@ -142,3 +153,4 @@ VALUE rbs_function(VALUE required_positional_params, VALUE optional_positional_p
 VALUE rbs_function_param(VALUE type, VALUE name, VALUE location);
 VALUE rbs_block(VALUE type, VALUE required);
 VALUE rbs_proc(VALUE function, VALUE block, VALUE location);
+VALUE rbs_literal(VALUE literal, VALUE location);

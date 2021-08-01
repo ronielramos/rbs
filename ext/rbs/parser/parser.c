@@ -61,6 +61,15 @@ static const char *names[] = {
   "tA2IDENT",         /* Identifiers starting with `@@` */
   "tBANGIDENT",
   "tEQIDENT",
+  "tQIDENT",          /* Quoted identifier */
+
+  "tCOMMENT",
+  "tLINECOMMENT",
+
+  "tDQSTRING",        /* Double quoted string */
+  "tSQSTRING",        /* Single quoted string */
+  "tINTEGER",         /* Integer */
+  "tSYMBOL",          /* Symbol */
 };
 
 typedef struct {
@@ -75,9 +84,16 @@ typedef struct {
 
 #define INTERN_TOKEN(parserstate, tok) rb_intern2(peek_token(parserstate->lexstate, tok), token_bytes(tok))
 
-
 static VALUE parse_optional(parserstate *state);
 static VALUE parse_simple(parserstate *state);
+
+static VALUE string_of_loc(parserstate *state, position start, position end) {
+  return rb_enc_str_new(
+    RSTRING_PTR(state->lexstate->string) + start.byte_pos,
+      end.byte_pos - start.byte_pos,
+      rb_enc_get(state->lexstate->string)
+  );
+}
 
 static void print_token(token tok) {
   printf("%s char=%d...%d\n", names[tok.type], tok.start.char_pos, tok.end.char_pos);
@@ -93,8 +109,21 @@ static void print_parser(parserstate *state) {
 static void parser_advance(parserstate *state) {
   state->current_token = state->next_token;
   state->next_token = state->next_token2;
-  if (state->next_token2.type != pEOF) {
+
+  while (true) {
+    if (state->next_token2.type == pEOF) {
+      break;
+    }
+
     state->next_token2 = rbsparser_next_token(state->lexstate);
+
+    if (state->next_token2.type == tCOMMENT) {
+      // skip
+    } else if (state->next_token2.type == tLINECOMMENT) {
+      // comment
+    } else {
+      break;
+    }
   }
 }
 
@@ -491,6 +520,17 @@ static VALUE parse_simple(parserstate *state) {
     return rbs_base_type(RBS_Types_Bases_Top, rbs_location_current_token(state));
   case kVOID:
     return rbs_base_type(RBS_Types_Bases_Void, rbs_location_current_token(state));
+  case tINTEGER: {
+    VALUE literal = rb_funcall(
+      string_of_loc(state, state->current_token.start, state->current_token.end),
+      rb_intern("to_i"),
+      0
+    );
+    return rbs_literal(
+      literal,
+      rbs_location_current_token(state)
+    );
+  }
   case tUIDENT:
   case pCOLON2: {
     VALUE typename = parse_type_name(state);
@@ -595,6 +635,7 @@ rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
   lexstate lex = { string };
   lex.current.line = NUM2INT(line);
   lex.current.column = NUM2INT(column);
+  lex.first_token_of_line = column == 0;
 
   parserstate parser = { &lex };
   parser.buffer = buffer;
@@ -640,11 +681,13 @@ Init_parser(void)
   RBS_Types_Proc = rb_const_get(RBS_Types, rb_intern("Proc"));
   RBS_Types_Tuple = rb_const_get(RBS_Types, rb_intern("Tuple"));
   RBS_Types_Union = rb_const_get(RBS_Types, rb_intern("Union"));
-  RBSParser = rb_define_class_under(RBS, "Parser", rb_cObject);
+  RBS_Types_Literal = rb_const_get(RBS_Types, rb_intern("Literal"));
 
   sym_class = ID2SYM(rb_intern_const("class"));
   sym_interface = ID2SYM(rb_intern_const("interface"));
   sym_alias = ID2SYM(rb_intern_const("alias"));
+
+  RBSParser = rb_define_class_under(RBS, "Parser", rb_cObject);
 
   rbsparser_Keywords = rb_hash_new();
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("bool"), INT2FIX(kBOOL));

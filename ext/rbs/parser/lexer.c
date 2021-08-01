@@ -1,6 +1,13 @@
 #include "parser.h"
 
 #define ONE_CHAR_PATTERN(c, t) case c: tok = next_token(state, t, start); break
+
+/**
+ * Returns one character at current.
+ *
+ * ... A B C ...
+ *    ^           current => A
+ * */
 #define peek(state) rb_enc_mbc_to_codepoint(RSTRING_PTR(state->string) + state->current.byte_pos, RSTRING_END(state->string), rb_enc_get(state->string))
 
 token NullToken = { NullType };
@@ -14,16 +21,30 @@ int token_bytes(token tok) {
   return tok.end.byte_pos - tok.start.byte_pos;
 }
 
+/**
+ * ... token ...
+ *    ^             start
+ *          ^       current
+ *
+ * */
 token next_token(lexstate *state, enum TokenType type, position start) {
   token t;
 
   t.type = type;
   t.start = start;
   t.end = state->current;
+  state->first_token_of_line = false;
 
   return t;
 }
 
+/**
+ * ... c1c2c3 ...
+ *    ^              current
+ *           ^       current + len
+ *           ^       After skip
+ *
+ * */
 void skipbyte(lexstate *state, unsigned int c, int len) {
   state->current.char_pos += 1;
   state->current.byte_pos += len;
@@ -31,6 +52,7 @@ void skipbyte(lexstate *state, unsigned int c, int len) {
   if (c == '\n') {
     state->current.line += 1;
     state->current.column = 0;
+    state->first_token_of_line = true;
   } else {
     state->current.column += 1;
   }
@@ -52,12 +74,52 @@ static token lex_colon(lexstate *state, position start) {
   }
 }
 
+/*
+   ... 0 1 ...
+        ^           current
+          ^         current (return)
+*/
+static token lex_number(lexstate *state, position start) {
+  unsigned int c;
+
+  while (true) {
+    c = peek(state);
+
+    if (rb_isdigit(c) || c == '_') {
+      skipbyte(state, c, 1);
+    } else {
+      break;
+    }
+  }
+
+  return next_token(state, tINTEGER, start);
+}
+
+/*
+  ... - > ...
+     ^              start
+       ^            current
+         ^          current (after)
+
+  ... - 1 ...
+     ^              start
+       ^            current
+       ^            current (lex_number)
+
+  ... - x ...
+     ^              start
+       ^            current
+       ^            current (after)
+*/
 static token lex_hyphen(lexstate* state, position start) {
   unsigned int c = peek(state);
 
   if (c == '>') {
     skipbyte(state, c, 1);
     return next_token(state, pARROW, start);
+  } else if (rb_isdigit(c)) {
+    skipbyte(state, c, 1);
+    return lex_number(state, start);
   } else {
     return next_token(state, pMINUS, start);
   }
@@ -162,9 +224,6 @@ void pp(VALUE object) {
   printf("pp >> %s\n", RSTRING_PTR(inspect));
 }
 
-static token lex_number(lexstate *state, position start) {
-}
-
 static token lex_ident(lexstate *state, position start, enum TokenType default_type) {
   unsigned int c;
   token tok;
@@ -203,6 +262,26 @@ static token lex_ident(lexstate *state, position start, enum TokenType default_t
   return tok;
 }
 
+static token lex_comment(lexstate *state, position start, enum TokenType type) {
+  unsigned int c;
+
+  while (true) {
+    c = peek(state);
+
+    if (c == '\n' || c == '\0') {
+      break;
+    } else {
+      skip(state, c);
+    }
+  }
+
+  token tok = next_token(state, type, start);
+
+  skipbyte(state, c, 1);
+
+  return tok;
+}
+
 token rbsparser_next_token(lexstate *state) {
   token tok = NullToken;
   position start = NullPosition;
@@ -229,6 +308,10 @@ token rbsparser_next_token(lexstate *state) {
     }
   }
 
+
+  /* ... c d ..                */
+  /*      ^     state->current */
+  /*    ^       start          */
   switch (c) {
     case '\0': tok = next_token(state, pEOF, start);
     ONE_CHAR_PATTERN('(', pLPAREN);
@@ -242,12 +325,25 @@ token rbsparser_next_token(lexstate *state) {
     ONE_CHAR_PATTERN('|', pBAR);
     ONE_CHAR_PATTERN('&', pAMP);
     ONE_CHAR_PATTERN('?', pQUESTION);
+    case '#':
+      if (state->first_token_of_line) {
+        tok = lex_comment(state, start, tLINECOMMENT);
+      } else {
+        tok = lex_comment(state, start, tCOMMENT);
+      }
+      break;
     case ':':
       tok = lex_colon(state, start);
       break;
     case '-':
       tok = lex_hyphen(state, start);
       break;
+    case '+':
+      if (rb_isdigit(peek(state))) {
+        return lex_number(state, start);
+      } else {
+        return next_token(state, pPLUS, start);
+      }
     case '.':
       tok = lex_dot(state, start, 1);
       break;
@@ -266,6 +362,9 @@ token rbsparser_next_token(lexstate *state) {
       }
       if (rb_isalpha(c) && rb_islower(c)) {
         tok = lex_ident(state, start, tLIDENT);
+      }
+      if (rb_isdigit(c)) {
+        tok = lex_number(state, start);
       }
   }
 
