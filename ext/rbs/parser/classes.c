@@ -1,12 +1,10 @@
 #include "parser.h"
 
 VALUE RBS_AST;
-
+VALUE RBS_Location;
 VALUE RBS_Namespace;
 VALUE RBS_TypeName;
-
-VALUE RBS_Types;
-VALUE RBS_Types_Bases;
+VALUE RBS_Types_Alias;
 VALUE RBS_Types_Bases_Any;
 VALUE RBS_Types_Bases_Bool;
 VALUE RBS_Types_Bases_Bottom;
@@ -16,20 +14,21 @@ VALUE RBS_Types_Bases_Nil;
 VALUE RBS_Types_Bases_Self;
 VALUE RBS_Types_Bases_Top;
 VALUE RBS_Types_Bases_Void;
-VALUE RBS_Types_ClassInstance;
-VALUE RBS_Types_Alias;
-VALUE RBS_Types_Interface;
-VALUE RBS_Types_Union;
-VALUE RBS_Types_Intersection;
-VALUE RBS_Types_ClassSingleton;
-VALUE RBS_Types_Tuple;
-VALUE RBS_Types_Optional;
-VALUE RBS_Location;
-VALUE RBS_Types_Function;
-VALUE RBS_Types_Function_Param;
+VALUE RBS_Types_Bases;
 VALUE RBS_Types_Block;
-VALUE RBS_Types_Proc;
+VALUE RBS_Types_ClassInstance;
+VALUE RBS_Types_ClassSingleton;
+VALUE RBS_Types_Function_Param;
+VALUE RBS_Types_Function;
+VALUE RBS_Types_Interface;
+VALUE RBS_Types_Intersection;
 VALUE RBS_Types_Literal;
+VALUE RBS_Types_Optional;
+VALUE RBS_Types_Proc;
+VALUE RBS_Types_Record;
+VALUE RBS_Types_Tuple;
+VALUE RBS_Types_Union;
+VALUE RBS_Types;
 
 VALUE rbs_base_type(VALUE klass, VALUE location) {
   VALUE args = rb_hash_new();
@@ -302,6 +301,20 @@ VALUE rbs_literal(VALUE literal, VALUE location) {
 
   return rb_funcallv_kw(
     RBS_Types_Literal,
+    rb_intern("new"),
+    1,
+    &args,
+    RB_PASS_KEYWORDS
+  );
+}
+
+VALUE rbs_record(VALUE fields, VALUE location) {
+  VALUE args = rb_hash_new();
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
+  rb_hash_aset(args, ID2SYM(rb_intern("fields")), fields);
+
+  return rb_funcallv_kw(
+    RBS_Types_Record,
     rb_intern("new"),
     1,
     &args,

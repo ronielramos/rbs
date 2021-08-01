@@ -84,6 +84,7 @@ class RBS::MethodTypeParsingTest < Test::Unit::TestCase
   :!~,
 ]
 TYPE
+    puts parse_type("{ id: Integer, name: String, :foo => [], '日本語' => '文字列' }")
   end
 
   def test_method_type

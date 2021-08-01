@@ -511,6 +511,56 @@ static VALUE parse_proc_type(parserstate *state) {
   return rbs_proc(function, Qnil, loc);
 }
 
+/**
+ * ... `{` ... `}` ...
+ *        >   >
+ * */
+VALUE parse_record_attributes(parserstate *state) {
+  VALUE hash = rb_hash_new();
+
+  while (true) {
+    VALUE key;
+    VALUE type;
+
+    if (is_keyword_token(state->next_token.type) && state->next_token2.type == pCOLON) {
+      // { foo: type } syntax
+      parser_advance(state);
+      key = ID2SYM(INTERN_TOKEN(state, state->current_token));
+      parser_advance_assert(state, pCOLON);
+    } else {
+      // { key => type } syntax
+      switch (state->next_token.type)
+      {
+      case tSYMBOL:
+      case tSQSTRING:
+      case tDQSTRING:
+      case tINTEGER:
+      case kTRUE:
+      case kFALSE:
+        key = rb_funcall(parse_type(state), rb_intern("literal"), 0);
+        break;
+      }
+
+      parser_advance_assert(state, pFATARROW);
+    }
+
+    type = parse_type(state);
+
+    rb_hash_aset(hash, key, type);
+
+    if (state->next_token.type == pCOMMA) {
+      parser_advance(state);
+      if (state->next_token.type == pRBRACE) {
+        break;
+      }
+    } else {
+      break;
+    }
+  }
+
+  return hash;
+}
+
 static VALUE parse_symbol(parserstate *state) {
   VALUE string = state->lexstate->string;
   rb_encoding *enc = rb_enc_get(string);
@@ -642,6 +692,14 @@ static VALUE parse_simple(parserstate *state) {
     parser_advance_assert(state, pRBRACKET);
     return rbs_tuple(types);
   }
+  case pLBRACE: {
+    position start = state->current_token.start;
+    VALUE fields = parse_record_attributes(state);
+    parser_advance_assert(state, pRBRACE);
+    position end = state->current_token.end;
+    VALUE location = rbs_location_pp(state->buffer, &start, &end);
+    return rbs_record(fields, location);
+  }
   case pHAT: {
     return parse_proc_type(state);
   }
@@ -741,11 +799,12 @@ Init_parser(void)
   RBS_Types_Function_Param = rb_const_get(RBS_Types_Function, rb_intern("Param"));
   RBS_Types_Interface = rb_const_get(RBS_Types, rb_intern("Interface"));
   RBS_Types_Intersection = rb_const_get(RBS_Types, rb_intern("Intersection"));
+  RBS_Types_Literal = rb_const_get(RBS_Types, rb_intern("Literal"));
   RBS_Types_Optional = rb_const_get(RBS_Types, rb_intern("Optional"));
   RBS_Types_Proc = rb_const_get(RBS_Types, rb_intern("Proc"));
+  RBS_Types_Record = rb_const_get(RBS_Types, rb_intern("Record"));
   RBS_Types_Tuple = rb_const_get(RBS_Types, rb_intern("Tuple"));
   RBS_Types_Union = rb_const_get(RBS_Types, rb_intern("Union"));
-  RBS_Types_Literal = rb_const_get(RBS_Types, rb_intern("Literal"));
 
   sym_class = ID2SYM(rb_intern_const("class"));
   sym_interface = ID2SYM(rb_intern_const("interface"));
