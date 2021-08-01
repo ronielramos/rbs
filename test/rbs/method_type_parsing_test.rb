@@ -40,6 +40,7 @@ EOF
     puts parse_type("^(String) -> void")
     puts parse_type("^(String s) -> void")
     puts parse_type("[123, +12_23, -1234_]")
+    puts parse_type("true | false")
   end
 
   def test_method_type

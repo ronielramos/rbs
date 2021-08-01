@@ -45,12 +45,14 @@ static const char *names[] = {
   "kBOOL",            /* bool */
   "kBOT",             /* bot */
   "kCLASS",           /* class */
+  "kFALSE",           /* kFALSE */
   "kINSTANCE",        /* instance */
   "kINTERFACE",       /* interface */
   "kNIL",             /* nil */
   "kSELF",            /* self */
   "kSINGLETON",       /* singleton */
   "kTOP",             /* top */
+  "kTRUE",            /* true */
   "kVOID",            /* void */
 
   "tLIDENT",          /* Identifiers starting with lower case */
@@ -531,6 +533,10 @@ static VALUE parse_simple(parserstate *state) {
       rbs_location_current_token(state)
     );
   }
+  case kTRUE:
+    return rbs_literal(Qtrue, rbs_location_current_token(state));
+  case kFALSE:
+    return rbs_literal(Qfalse, rbs_location_current_token(state));
   case tUIDENT:
   case pCOLON2: {
     VALUE typename = parse_type_name(state);

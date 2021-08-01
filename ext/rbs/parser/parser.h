@@ -36,12 +36,14 @@ enum TokenType {
   kBOOL,            /* bool */
   kBOT,             /* bot */
   kCLASS,           /* class */
+  kFALSE,           /* false */
   kINSTANCE,        /* instance */
   kINTERFACE,       /* interface */
   kNIL,             /* nil */
   kSELF,            /* self */
   kSINGLETON,       /* singleton */
   kTOP,             /* top */
+  kTRUE,            /* true */
   kVOID,            /* void */
 
   tLIDENT,          /* Identifiers starting with lower case */
