@@ -476,27 +476,74 @@ static VALUE parse_optional(parserstate *state) {
   }
 }
 
-static VALUE parse_proc_type(parserstate *state) {
+static void initialize_method_params(method_params *params){
+  params->required_positionals = rb_ary_new();
+  params->optional_positionals = rb_ary_new();
+  params->rest_positionals = Qnil;
+  params->trailing_positionals = rb_ary_new();
+  params->required_keywords = rb_hash_new();
+  params->optional_keywords = rb_hash_new();
+  params->rest_keywords = Qnil;
+}
+
+/**
+ * ... `(` params `)` `->` Type ...
+ *    ^                                 start
+ *                             ^        end
+ *
+ * */
+static void parse_function(parserstate *state, VALUE *function, VALUE *block) {
   method_params params;
-  params.required_positionals = rb_ary_new();
-  params.optional_positionals = rb_ary_new();
-  params.rest_positionals = Qnil;
-  params.trailing_positionals = rb_ary_new();
-  params.required_keywords = rb_hash_new();
-  params.optional_keywords = rb_hash_new();
-  params.rest_keywords = Qnil;
+  initialize_method_params(&params);
 
-  position start = state->current_token.start;
-  parser_advance_assert(state, pLPAREN);
+  if (state->next_token.type == pLPAREN) {
+    parser_advance(state);
+    parse_params(state, &params);
+    parser_advance_assert(state, pRPAREN);
+  }
 
-  parse_params(state, &params);
+  VALUE required = Qtrue;
+  if (state->next_token.type == pQUESTION && state->next_token.type == pLBRACE) {
+    // Optional block
+    required = Qfalse;
+    parser_advance(state);
+  }
+  if (state->next_token.type == pLBRACE) {
+    parser_advance(state);
 
-  parser_advance_assert(state, pRPAREN);
+    method_params block_params;
+    initialize_method_params(&block_params);
+
+    if (state->next_token.type == pLPAREN) {
+      parser_advance(state);
+      parse_params(state, &block_params);
+      parser_advance_assert(state, pRPAREN);
+    }
+
+    parser_advance_assert(state, pARROW);
+    VALUE block_return_type = parse_optional(state);
+
+    *block = rbs_block(
+      rbs_function(
+        block_params.required_positionals,
+        block_params.optional_positionals,
+        block_params.rest_positionals,
+        block_params.trailing_positionals,
+        block_params.required_keywords,
+        block_params.optional_keywords,
+        block_params.rest_keywords,
+        block_return_type
+      ),
+      required
+    );
+
+    parser_advance_assert(state, pRBRACE);
+  }
+
   parser_advance_assert(state, pARROW);
   VALUE type = parse_optional(state);
-  position end = state->current_token.end;
 
-  VALUE function = rbs_function(
+  *function = rbs_function(
     params.required_positionals,
     params.optional_positionals,
     params.rest_positionals,
@@ -506,10 +553,22 @@ static VALUE parse_proc_type(parserstate *state) {
     params.rest_keywords,
     type
   );
+}
 
+/**
+ *  ... `^` `(` ... type ...
+ *         ^                    start
+ *                      ^       end
+ * */
+static VALUE parse_proc_type(parserstate *state) {
+  position start = state->current_token.start;
+  VALUE function = Qnil;
+  VALUE block = Qnil;
+  parse_function(state, &function, &block);
+  position end = state->current_token.end;
   VALUE loc = rbs_location_pp(state->buffer, &start, &end);
 
-  return rbs_proc(function, Qnil, loc);
+  return rbs_proc(function, block, loc);
 }
 
 /**
