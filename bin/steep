@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/local/bin/zsh
 
 GEMFILE=$(cd $(dirname $0); pwd)/../steep/Gemfile
 bundle exec --gemfile=${GEMFILE} steep $*

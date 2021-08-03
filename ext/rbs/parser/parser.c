@@ -1,80 +1,6 @@
 #include "parser.h"
 #include "ruby/internal/symbol.h"
 
-VALUE rbsparser_Keywords;
-
-static VALUE RBSParser;
-
-static ID id_RBS;
-static VALUE RBS;
-
-static VALUE sym_class;
-static VALUE sym_alias;
-static VALUE sym_interface;
-
-static const char *names[] = {
-  "NullType",
-  "pEOF",
-
-  "pLPAREN",
-  "pRPAREN",
-  "pCOLON",
-  "pCOLON2",
-  "pLBRACKET",
-  "pRBRACKET",
-  "pLBRACE",
-  "pRBRACE",
-  "pHAT",
-  "pARROW",
-  "pFATARROW",
-  "pCOMMA",
-  "pBAR",
-  "pAMP",
-  "pSTAR",
-  "pSTAR2",
-  "pDOT",
-  "pDOT3",
-  "pMINUS",
-  "pPLUS",
-  "pSLASH",
-  "pEQ2",
-  "pEQ3",
-  "pEQT",
-  "pBANG",
-  "pQUESTION",
-
-  "kBOOL",            /* bool */
-  "kBOT",             /* bot */
-  "kCLASS",           /* class */
-  "kFALSE",           /* kFALSE */
-  "kINSTANCE",        /* instance */
-  "kINTERFACE",       /* interface */
-  "kNIL",             /* nil */
-  "kSELF",            /* self */
-  "kSINGLETON",       /* singleton */
-  "kTOP",             /* top */
-  "kTRUE",            /* true */
-  "kVOID",            /* void */
-
-  "tLIDENT",          /* Identifiers starting with lower case */
-  "tUIDENT",          /* Identifiers starting with upper case */
-  "tULIDENT",         /* Identifiers starting with `_` */
-  "tGIDENT",          /* Identifiers starting with `$` */
-  "tAIDENT",          /* Identifiers starting with `@` */
-  "tA2IDENT",         /* Identifiers starting with `@@` */
-  "tBANGIDENT",
-  "tEQIDENT",
-  "tQIDENT",          /* Quoted identifier */
-
-  "tCOMMENT",
-  "tLINECOMMENT",
-
-  "tDQSTRING",        /* Double quoted string */
-  "tSQSTRING",        /* Single quoted string */
-  "tINTEGER",         /* Integer */
-  "tSYMBOL",          /* Symbol */
-};
-
 typedef struct {
   VALUE required_positionals;
   VALUE optional_positionals;
@@ -110,52 +36,6 @@ static VALUE string_of_bytepos(parserstate *state, int byte_start, int byte_end)
       rb_enc_get(state->lexstate->string)
   );
 }
-
-static void print_token(token tok) {
-  printf("%s char=%d...%d\n", names[tok.type], tok.start.char_pos, tok.end.char_pos);
-}
-
-static void print_parser(parserstate *state) {
-  pp(state->buffer);
-  printf("  current_token = %s (%d...%d)\n", names[state->current_token.type], state->current_token.start.char_pos, state->current_token.end.char_pos);
-  printf("     next_token = %s (%d...%d)\n", names[state->next_token.type], state->next_token.start.char_pos, state->next_token.end.char_pos);
-  printf("    next_token2 = %s (%d...%d)\n", names[state->next_token2.type], state->next_token2.start.char_pos, state->next_token2.end.char_pos);
-}
-
-static void parser_advance(parserstate *state) {
-  state->current_token = state->next_token;
-  state->next_token = state->next_token2;
-
-  while (true) {
-    if (state->next_token2.type == pEOF) {
-      break;
-    }
-
-    state->next_token2 = rbsparser_next_token(state->lexstate);
-
-    if (state->next_token2.type == tCOMMENT) {
-      // skip
-    } else if (state->next_token2.type == tLINECOMMENT) {
-      // comment
-    } else {
-      break;
-    }
-  }
-}
-
-static void parser_advance_assert(parserstate *state, enum TokenType type) {
-  parser_advance(state);
-  if (state->current_token.type != type) {
-    print_token(state->current_token);
-    rb_raise(
-      rb_eRuntimeError,
-      "Unexpected token: expected=%s, actual=%s",
-      names[type],
-      names[state->current_token.type]
-    );
-  }
-}
-
 
 static void __attribute__((noreturn)) raise_syntax_error() {
   rb_raise(rb_eRuntimeError, "Syntax error");
@@ -782,7 +662,7 @@ static VALUE parse_simple(parserstate *state) {
     return parse_proc_type(state);
   }
   default:
-    rb_raise(rb_eRuntimeError, "Parse error in parse_simple: %s", names[state->current_token.type]);
+    rb_raise(rb_eRuntimeError, "Parse error in parse_simple: %s", RBS_TOKENTYPE_NAMES[state->current_token.type]);
   }
 }
 
@@ -833,7 +713,7 @@ VALUE parse_type(parserstate *state) {
       ^
                             ^
 */
-static VALUE parse_method_type(parserstate *state){
+VALUE parse_method_type(parserstate *state) {
   VALUE function = Qnil;
   VALUE block = Qnil;
   id_table *table = parser_push_table(state);
@@ -878,106 +758,4 @@ static VALUE parse_method_type(parserstate *state){
     block,
     rbs_location_pp(state->buffer, &start, &end)
   );
-}
-
-static VALUE
-rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
-{
-  VALUE string = rb_funcall(buffer, rb_intern("content"), 0);
-  lexstate lex = { string };
-  lex.current.line = NUM2INT(line);
-  lex.current.column = NUM2INT(column);
-  lex.first_token_of_line = column == 0;
-
-  parserstate parser = { &lex };
-  parser.buffer = buffer;
-  parser.current_token = NullToken;
-  parser.next_token = NullToken;
-  parser.next_token2 = NullToken;
-
-  parser_advance(&parser);
-  parser_advance(&parser);
-  return parse_type(&parser);
-}
-
-static VALUE
-rbsparser_parse_method_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
-{
-  VALUE string = rb_funcall(buffer, rb_intern("content"), 0);
-  lexstate lex = { string };
-  lex.current.line = NUM2INT(line);
-  lex.current.column = NUM2INT(column);
-  lex.first_token_of_line = column == 0;
-
-  parserstate parser = { &lex };
-  parser.buffer = buffer;
-  parser.current_token = NullToken;
-  parser.next_token = NullToken;
-  parser.next_token2 = NullToken;
-
-  parser_advance(&parser);
-  parser_advance(&parser);
-  return parse_method_type(&parser);
-}
-
-void
-Init_parser(void)
-{
-  id_RBS = rb_intern_const("RBS");
-
-  RBS = rb_const_get(rb_cObject, id_RBS);
-  RBS_AST = rb_const_get(RBS, rb_intern("AST"));
-  RBS_Location = rb_const_get(RBS, rb_intern("Location"));
-  RBS_Namespace = rb_const_get(RBS, rb_intern("Namespace"));
-  RBS_TypeName = rb_const_get(RBS, rb_intern("TypeName"));
-  RBS_Types = rb_const_get(RBS, rb_intern("Types"));
-  RBS_Types_Alias = rb_const_get(RBS_Types, rb_intern("Alias"));
-  RBS_Types_Bases = rb_const_get(RBS_Types, rb_intern("Bases"));
-  RBS_Types_Bases_Any = rb_const_get(RBS_Types_Bases, rb_intern("Any"));
-  RBS_Types_Bases_Bool = rb_const_get(RBS_Types_Bases, rb_intern("Bool"));
-  RBS_Types_Bases_Bottom = rb_const_get(RBS_Types_Bases, rb_intern("Bottom"));
-  RBS_Types_Bases_Class = rb_const_get(RBS_Types_Bases, rb_intern("Class"));
-  RBS_Types_Bases_Instance = rb_const_get(RBS_Types_Bases, rb_intern("Instance"));
-  RBS_Types_Bases_Nil = rb_const_get(RBS_Types_Bases, rb_intern("Nil"));
-  RBS_Types_Bases_Self = rb_const_get(RBS_Types_Bases, rb_intern("Self"));
-  RBS_Types_Bases_Top = rb_const_get(RBS_Types_Bases, rb_intern("Top"));
-  RBS_Types_Bases_Void = rb_const_get(RBS_Types_Bases, rb_intern("Void"));
-  RBS_Types_Block = rb_const_get(RBS_Types, rb_intern("Block"));
-  RBS_Types_ClassInstance = rb_const_get(RBS_Types, rb_intern("ClassInstance"));
-  RBS_Types_ClassSingleton = rb_const_get(RBS_Types, rb_intern("ClassSingleton"));
-  RBS_Types_Function = rb_const_get(RBS_Types, rb_intern("Function"));
-  RBS_Types_Function_Param = rb_const_get(RBS_Types_Function, rb_intern("Param"));
-  RBS_Types_Interface = rb_const_get(RBS_Types, rb_intern("Interface"));
-  RBS_Types_Intersection = rb_const_get(RBS_Types, rb_intern("Intersection"));
-  RBS_Types_Literal = rb_const_get(RBS_Types, rb_intern("Literal"));
-  RBS_Types_Optional = rb_const_get(RBS_Types, rb_intern("Optional"));
-  RBS_Types_Proc = rb_const_get(RBS_Types, rb_intern("Proc"));
-  RBS_Types_Record = rb_const_get(RBS_Types, rb_intern("Record"));
-  RBS_Types_Tuple = rb_const_get(RBS_Types, rb_intern("Tuple"));
-  RBS_Types_Union = rb_const_get(RBS_Types, rb_intern("Union"));
-  RBS_Types_Variable = rb_const_get(RBS_Types, rb_intern("Variable"));
-  RBS_MethodType = rb_const_get(RBS, rb_intern("MethodType"));
-
-  sym_class = ID2SYM(rb_intern_const("class"));
-  sym_interface = ID2SYM(rb_intern_const("interface"));
-  sym_alias = ID2SYM(rb_intern_const("alias"));
-
-  RBSParser = rb_define_class_under(RBS, "Parser", rb_cObject);
-
-  rbsparser_Keywords = rb_hash_new();
-  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("bool"), INT2FIX(kBOOL));
-  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("bot"), INT2FIX(kBOT));
-  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("class"), INT2FIX(kCLASS));
-  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("instance"), INT2FIX(kINSTANCE));
-  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("interface"), INT2FIX(kINTERFACE));
-  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("nil"), INT2FIX(kNIL));
-  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("self"), INT2FIX(kSELF));
-  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("singleton"), INT2FIX(kSINGLETON));
-  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("top"), INT2FIX(kTOP));
-  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("void"), INT2FIX(kVOID));
-
-  rb_define_const(RBSParser, "KEYWORDS", rbsparser_Keywords);
-
-  rb_define_singleton_method(RBSParser, "_parse_type", rbsparser_parse_type, 3);
-  rb_define_singleton_method(RBSParser, "_parse_method_type", rbsparser_parse_method_type, 3);
 }

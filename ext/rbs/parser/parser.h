@@ -112,8 +112,17 @@ int token_chars(token tok);
 int token_bytes(token tok);
 
 VALUE parse_type(parserstate *state);
+VALUE parse_method_type(parserstate *state);
 
 void pp(VALUE object);
+
+extern VALUE RBSParser;
+extern VALUE rbsparser_Keywords;
+
+extern ID id_RBS;
+extern VALUE sym_class;
+extern VALUE sym_alias;
+extern VALUE sym_interface;
 
 extern VALUE RBS_AST;
 extern VALUE RBS_Location;
@@ -178,3 +187,10 @@ id_table *parser_push_table(parserstate *state);
 void parser_insert_id(parserstate *state, ID id);
 bool parser_id_member(parserstate *state, ID id);
 void parser_pop_table(parserstate *state);
+
+void print_parser(parserstate *state);
+void parser_advance(parserstate *state);
+void parser_advance_assert(parserstate *state, enum TokenType type);
+void print_token(token tok);
+
+extern const char *RBS_TOKENTYPE_NAMES[];
