@@ -18,6 +18,11 @@ class RBS::MethodTypeParsingTest < Test::Unit::TestCase
     RBS::Parser._parse_method_type(buffer, 1, 0)
   end
 
+  def parse_signature(string)
+    buffer = Buffer.new(content: string.encode(Encoding::UTF_8), name: "sample.rbs")
+    RBS::Parser._parse_signature(buffer, 1, 0)
+  end
+
   def test_tokenizer
 #     puts parse_type(<<EOF)
 # Array[
@@ -94,6 +99,17 @@ TYPE
 
     puts parse_type('^() -> void')
     puts parse_type('^{ (String) -> untyped? } -> void')
+  end
+
+  def test_decl___123
+    pp parse_signature(<<EOF)
+# Number of people.
+#
+# ```
+# People::Size = 123
+# ```
+People::Size: Integer
+EOF
   end
 
   def test_method_type___123

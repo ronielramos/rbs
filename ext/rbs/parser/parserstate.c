@@ -112,7 +112,7 @@ void parser_advance(parserstate *state) {
     if (state->next_token2.type == tCOMMENT) {
       // skip
     } else if (state->next_token2.type == tLINECOMMENT) {
-      // comment
+      insert_comment_line(state, state->next_token2);
     } else {
       break;
     }
@@ -141,3 +141,54 @@ void print_token(token tok) {
   );
 }
 
+void insert_comment_line(parserstate *state, token tok) {
+  if (state->last_comment) {
+    if (state->last_comment->end.line != tok.start.line - 1) {
+      free(state->last_comment->tokens);
+      free(state->last_comment);
+      state->last_comment = NULL;
+    }
+  }
+
+  if (!state->last_comment) {
+    state->last_comment = calloc(1, sizeof(comment));
+    state->last_comment->tokens = calloc(10, sizeof(token));
+    state->last_comment->line_size = 10;
+    state->last_comment->start = tok.start;
+  }
+
+  if (state->last_comment->line_count == state->last_comment->line_size) {
+    token *p = state->last_comment->tokens;
+    state->last_comment->tokens = calloc(state->last_comment->line_size + 10, sizeof(token));
+    memcpy(state->last_comment->tokens, p, state->last_comment->line_size * sizeof(token));
+    state->last_comment->line_size += 10;
+    free(p);
+  }
+
+  state->last_comment->tokens[state->last_comment->line_count++] = tok;
+  state->last_comment->end = tok.end;
+}
+
+VALUE get_comment(parserstate *state, int subject_line) {
+  comment *comment = state->last_comment;
+
+  if (!comment) return Qnil;
+
+  printf("comment->end.line = %d\n", comment->end.line);
+  if (comment->end.line != subject_line - 1) return Qnil;
+
+  VALUE content = rb_funcall(state->buffer, rb_intern("content"), 0);
+  VALUE string = rb_enc_str_new_cstr("", rb_enc_get(content));
+
+  for (size_t i = 0; i < comment->line_count; i++) {
+    token tok = comment->tokens[i];
+    char *p = peek_token(state->lexstate, tok);
+    rb_str_cat(string, p, tok.end.byte_pos - tok.start.byte_pos);
+    rb_str_cat_cstr(string, "\n");
+  }
+
+  return rbs_ast_comment(
+    string,
+    rbs_location_pp(state->buffer, &comment->start, &comment->end)
+  );
+}

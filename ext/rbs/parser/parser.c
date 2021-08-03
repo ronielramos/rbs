@@ -74,6 +74,37 @@ VALUE parse_type_name(parserstate *state) {
   }
 }
 
+VALUE parse_const_name(parserstate *state) {
+  VALUE absolute = Qfalse;
+  VALUE path = rb_ary_new();
+  VALUE namespace;
+
+  if (state->current_token.type == pCOLON2) {
+    absolute = Qtrue;
+    parser_advance(state);
+  }
+
+  if (state->current_token.type == tUIDENT) {
+    // may be prefix
+    while (state->next_token.type == pCOLON2) {
+      rb_ary_push(path, ID2SYM(INTERN_TOKEN(state, state->current_token)));
+
+      parser_advance(state);
+      parser_advance(state);
+    }
+  }
+  namespace = rbs_namespace(path, absolute);
+
+  switch (state->current_token.type)
+  {
+  case tUIDENT:
+    return rbs_type_name(namespace, ID2SYM(INTERN_TOKEN(state, state->current_token)));
+    break;
+  default:
+    raise_syntax_error();
+  }
+}
+
 static VALUE parse_type_list(parserstate *state, enum TokenType eol, VALUE types) {
   while (true) {
     if (state->next_token.type == eol) {
@@ -758,4 +789,52 @@ VALUE parse_method_type(parserstate *state) {
     block,
     rbs_location_pp(state->buffer, &start, &end)
   );
+}
+
+/**
+ *
+ * ... tUIDENT ... `:` TYPE ...
+ *            >
+ *                         >
+ *
+ * */
+VALUE parse_const_decl(parserstate *state) {
+  position start = state->current_token.start;
+  VALUE typename = parse_const_name(state);
+
+  parser_advance_assert(state, pCOLON);
+
+  VALUE type = parse_type(state);
+  position end = state->current_token.end;
+
+  return rbs_ast_decl_constant(
+    typename,
+    type,
+    rbs_location_pp(state->buffer, &start, &end),
+    get_comment(state, start.line)
+  );
+}
+
+VALUE parse_decl(parserstate *state) {
+  parser_advance(state);
+
+  switch (state->current_token.type)
+  {
+  case tUIDENT:
+  case pCOLON2:
+    return parse_const_decl(state);
+
+  default:
+    raise_syntax_error();
+  }
+}
+
+VALUE parse_signature(parserstate *state) {
+  VALUE decls = rb_ary_new();
+
+  while (state->next_token.type != pEOF) {
+    rb_ary_push(decls, parse_decl(state));
+  }
+
+  return decls;
 }

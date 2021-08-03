@@ -74,9 +74,16 @@ VALUE sym_interface;
 
 VALUE RBS;
 VALUE RBS_AST;
+VALUE RBS_AST_Comment;
+
+VALUE RBS_AST_Declarations;
+VALUE RBS_AST_Declarations_Constant;
+VALUE RBS_AST_Declarations_Global;
+
 VALUE RBS_Location;
 VALUE RBS_Namespace;
 VALUE RBS_TypeName;
+
 VALUE RBS_Types_Alias;
 VALUE RBS_Types_Bases_Any;
 VALUE RBS_Types_Bases_Bool;
@@ -112,7 +119,7 @@ rbsparser_parse_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
   lexstate lex = { string };
   lex.current.line = NUM2INT(line);
   lex.current.column = NUM2INT(column);
-  lex.first_token_of_line = column == 0;
+  lex.first_token_of_line = lex.current.column == 0;
 
   parserstate parser = { &lex };
   parser.buffer = buffer;
@@ -132,7 +139,7 @@ rbsparser_parse_method_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
   lexstate lex = { string };
   lex.current.line = NUM2INT(line);
   lex.current.column = NUM2INT(column);
-  lex.first_token_of_line = column == 0;
+  lex.first_token_of_line = lex.current.column == 0;
 
   parserstate parser = { &lex };
   parser.buffer = buffer;
@@ -145,6 +152,25 @@ rbsparser_parse_method_type(VALUE self, VALUE buffer, VALUE line, VALUE column)
   return parse_method_type(&parser);
 }
 
+static VALUE
+rbsparser_parse_signature(VALUE self, VALUE buffer, VALUE line, VALUE column)
+{
+  VALUE string = rb_funcall(buffer, rb_intern("content"), 0);
+  lexstate lex = { string };
+  lex.current.line = NUM2INT(line);
+  lex.current.column = NUM2INT(column);
+  lex.first_token_of_line = lex.current.column == 0;
+
+  parserstate parser = { &lex };
+  parser.buffer = buffer;
+  parser.current_token = NullToken;
+  parser.next_token = NullToken;
+  parser.next_token2 = NullToken;
+
+  parser_advance(&parser);
+  parser_advance(&parser);
+  return parse_signature(&parser);
+}
 void
 Init_parser(void)
 {
@@ -152,6 +178,12 @@ Init_parser(void)
 
   RBS = rb_const_get(rb_cObject, id_RBS);
   RBS_AST = rb_const_get(RBS, rb_intern("AST"));
+  RBS_AST_Comment = rb_const_get(RBS_AST, rb_intern("Comment"));
+
+  RBS_AST_Declarations = rb_const_get(RBS_AST, rb_intern("Declarations"));
+  RBS_AST_Declarations_Constant = rb_const_get(RBS_AST_Declarations, rb_intern("Constant"));
+  RBS_AST_Declarations_Global = rb_const_get(RBS_AST_Declarations, rb_intern("Global"));
+
   RBS_Location = rb_const_get(RBS, rb_intern("Location"));
   RBS_Namespace = rb_const_get(RBS, rb_intern("Namespace"));
   RBS_TypeName = rb_const_get(RBS, rb_intern("TypeName"));
@@ -205,4 +237,5 @@ Init_parser(void)
 
   rb_define_singleton_method(RBSParser, "_parse_type", rbsparser_parse_type, 3);
   rb_define_singleton_method(RBSParser, "_parse_method_type", rbsparser_parse_method_type, 3);
+  rb_define_singleton_method(RBSParser, "_parse_signature", rbsparser_parse_signature, 3);
 }

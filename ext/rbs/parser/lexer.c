@@ -267,8 +267,15 @@ static token lex_ident(lexstate *state, position start, enum TokenType default_t
   return tok;
 }
 
-static token lex_comment(lexstate *state, position start, enum TokenType type) {
+static token lex_comment(lexstate *state, enum TokenType type) {
   unsigned int c;
+
+  c = peek(state);
+  if (c == ' ') {
+    skip(state, c);
+  }
+
+  position start = state->current;
 
   while (true) {
     c = peek(state);
@@ -282,7 +289,7 @@ static token lex_comment(lexstate *state, position start, enum TokenType type) {
 
   token tok = next_token(state, type, start);
 
-  skipbyte(state, c, 1);
+  skip(state, c);
 
   return tok;
 }
@@ -575,9 +582,9 @@ token rbsparser_next_token(lexstate *state) {
     ONE_CHAR_PATTERN('?', pQUESTION);
     case '#':
       if (state->first_token_of_line) {
-        tok = lex_comment(state, start, tLINECOMMENT);
+        tok = lex_comment(state, tLINECOMMENT);
       } else {
-        tok = lex_comment(state, start, tCOMMENT);
+        tok = lex_comment(state, tCOMMENT);
       }
       break;
     case ':':

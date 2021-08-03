@@ -92,12 +92,21 @@ typedef struct id_table {
 } id_table;
 
 typedef struct {
+  position start;
+  position end;
+  size_t line_size;
+  size_t line_count;
+  token *tokens;
+} comment;
+
+typedef struct {
   lexstate *lexstate;
   token current_token;
   token next_token;
   token next_token2;
   VALUE buffer;
   id_table *vars;
+  comment *last_comment;
 } parserstate;
 
 extern token NullToken;
@@ -113,6 +122,7 @@ int token_bytes(token tok);
 
 VALUE parse_type(parserstate *state);
 VALUE parse_method_type(parserstate *state);
+VALUE parse_signature(parserstate *state);
 
 void pp(VALUE object);
 
@@ -125,9 +135,15 @@ extern VALUE sym_alias;
 extern VALUE sym_interface;
 
 extern VALUE RBS_AST;
+extern VALUE RBS_AST_Comment;
+extern VALUE RBS_AST_Declarations;
+extern VALUE RBS_AST_Declarations_Constant;
+extern VALUE RBS_AST_Declarations_Global;
+
 extern VALUE RBS_Location;
 extern VALUE RBS_Namespace;
 extern VALUE RBS_TypeName;
+
 extern VALUE RBS_Types_Alias;
 extern VALUE RBS_Types_Bases_Any;
 extern VALUE RBS_Types_Bases_Bool;
@@ -181,6 +197,9 @@ VALUE rbs_variable(VALUE name, VALUE location);
 
 VALUE rbs_method_type(VALUE type_params, VALUE type, VALUE block, VALUE location);
 
+VALUE rbs_ast_comment(VALUE string, VALUE location);
+VALUE rbs_ast_decl_constant(VALUE name, VALUE type, VALUE location, VALUE comment);
+
 void rbs_unescape_string(VALUE string);
 
 id_table *parser_push_table(parserstate *state);
@@ -192,5 +211,8 @@ void print_parser(parserstate *state);
 void parser_advance(parserstate *state);
 void parser_advance_assert(parserstate *state, enum TokenType type);
 void print_token(token tok);
+
+void insert_comment_line(parserstate *state, token token);
+VALUE get_comment(parserstate *state, int subject_line);
 
 extern const char *RBS_TOKENTYPE_NAMES[];
