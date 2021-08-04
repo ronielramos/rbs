@@ -791,6 +791,23 @@ VALUE parse_method_type(parserstate *state) {
   );
 }
 
+VALUE parse_global_decl(parserstate *state) {
+  position start = state->current_token.start;
+  VALUE typename = ID2SYM(INTERN_TOKEN(state, state->current_token));
+
+  parser_advance_assert(state, pCOLON);
+
+  VALUE type = parse_type(state);
+  position end = state->current_token.end;
+
+  return rbs_ast_decl_global(
+    typename,
+    type,
+    rbs_location_pp(state->buffer, &start, &end),
+    get_comment(state, start.line)
+  );
+}
+
 /**
  *
  * ... tUIDENT ... `:` TYPE ...
@@ -823,6 +840,9 @@ VALUE parse_decl(parserstate *state) {
   case tUIDENT:
   case pCOLON2:
     return parse_const_decl(state);
+
+  case tGIDENT:
+    return parse_global_decl(state);
 
   default:
     raise_syntax_error();

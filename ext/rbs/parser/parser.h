@@ -199,6 +199,7 @@ VALUE rbs_method_type(VALUE type_params, VALUE type, VALUE block, VALUE location
 
 VALUE rbs_ast_comment(VALUE string, VALUE location);
 VALUE rbs_ast_decl_constant(VALUE name, VALUE type, VALUE location, VALUE comment);
+VALUE rbs_ast_decl_global(VALUE name, VALUE type, VALUE location, VALUE comment);
 
 void rbs_unescape_string(VALUE string);
 

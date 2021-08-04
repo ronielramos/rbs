@@ -109,6 +109,12 @@ TYPE
 # People::Size = 123
 # ```
 People::Size: Integer
+
+# bar
+
+# $Foo is foo!
+#
+$Foo: [String, Integer]
 EOF
   end
 
