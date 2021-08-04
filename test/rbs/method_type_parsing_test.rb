@@ -111,6 +111,8 @@ TYPE
 People::Size: Integer
 
 # bar
+type json = Integer | bool
+type String::t = String
 
 # $Foo is foo!
 #

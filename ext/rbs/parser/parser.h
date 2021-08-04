@@ -27,6 +27,7 @@ enum TokenType {
   pMINUS,           /* - */
   pPLUS,            /* + */
   pSLASH,           /* / */
+  pEQ,              /* = */
   pEQ2,             /* == */
   pEQ3,             /* === */
   pEQT,             /* =~ */
@@ -45,6 +46,7 @@ enum TokenType {
   kTOP,             /* top */
   kTRUE,            /* true */
   kVOID,            /* void */
+  kTYPE,            /* kTYPE */
 
   tLIDENT,          /* Identifiers starting with lower case */
   tUIDENT,          /* Identifiers starting with upper case */
@@ -137,6 +139,7 @@ extern VALUE sym_interface;
 extern VALUE RBS_AST;
 extern VALUE RBS_AST_Comment;
 extern VALUE RBS_AST_Declarations;
+extern VALUE RBS_AST_Declarations_Alias;
 extern VALUE RBS_AST_Declarations_Constant;
 extern VALUE RBS_AST_Declarations_Global;
 
@@ -200,6 +203,7 @@ VALUE rbs_method_type(VALUE type_params, VALUE type, VALUE block, VALUE location
 VALUE rbs_ast_comment(VALUE string, VALUE location);
 VALUE rbs_ast_decl_constant(VALUE name, VALUE type, VALUE location, VALUE comment);
 VALUE rbs_ast_decl_global(VALUE name, VALUE type, VALUE location, VALUE comment);
+VALUE rbs_ast_decl_alias(VALUE name, VALUE type, VALUE annotations, VALUE location, VALUE comment);
 
 void rbs_unescape_string(VALUE string);
 

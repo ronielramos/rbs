@@ -41,6 +41,10 @@ static void __attribute__((noreturn)) raise_syntax_error() {
   rb_raise(rb_eRuntimeError, "Syntax error");
 }
 
+static void __attribute__((noreturn)) raise_syntax_error_e(parserstate *state, token tok, char *expected) {
+  rb_raise(rb_eRuntimeError, "Syntax error at line %d, expected `%s`, but got %s", state->current_token.start.line, expected, RBS_TOKENTYPE_NAMES[tok.type]);
+}
+
 VALUE parse_type_name(parserstate *state) {
   VALUE absolute = Qfalse;
   VALUE path = rb_ary_new();
@@ -102,6 +106,57 @@ VALUE parse_const_name(parserstate *state) {
     break;
   default:
     raise_syntax_error();
+  }
+}
+
+/*
+  ... name ...
+          >
+          >
+
+  ... NAME `::` name ...
+          >
+                    >
+
+  ... `::` NAME `::` name ...
+          >
+                         >
+
+*/
+VALUE parse_alias_name(parserstate *state) {
+  VALUE absolute = Qfalse;
+  VALUE path = rb_ary_new();
+  VALUE namespace;
+
+  if (state->current_token.type == pCOLON2) {
+    absolute = Qtrue;
+    parser_advance(state);
+  }
+
+  if (state->current_token.type == tUIDENT) {
+    // may be prefix
+    while (state->next_token.type == pCOLON2) {
+      rb_ary_push(path, ID2SYM(INTERN_TOKEN(state, state->current_token)));
+
+      parser_advance(state);
+      parser_advance(state);
+    }
+  }
+  namespace = rbs_namespace(path, absolute);
+
+  switch (state->current_token.type)
+  {
+  case tLIDENT:
+    return rbs_type_name(
+      namespace,
+      ID2SYM(INTERN_TOKEN(state, state->current_token))
+    );
+  default:
+    raise_syntax_error_e(
+      state,
+      state->current_token,
+      "type alias name (tLIDENT)"
+    );
   }
 }
 
@@ -832,6 +887,26 @@ VALUE parse_const_decl(parserstate *state) {
   );
 }
 
+VALUE parse_type_decl(parserstate *state) {
+  position start = state->current_token.start;
+
+  parser_advance(state);
+  VALUE typename = parse_alias_name(state);
+
+  parser_advance_assert(state, pEQ);
+
+  VALUE type = parse_type(state);
+  position end = state->current_token.end;
+
+  return rbs_ast_decl_alias(
+    typename,
+    type,
+    rb_ary_new(),
+    rbs_location_pp(state->buffer, &start, &end),
+    get_comment(state, start.line)
+  );
+}
+
 VALUE parse_decl(parserstate *state) {
   parser_advance(state);
 
@@ -843,6 +918,9 @@ VALUE parse_decl(parserstate *state) {
 
   case tGIDENT:
     return parse_global_decl(state);
+
+  case kTYPE:
+    return parse_type_decl(state);
 
   default:
     raise_syntax_error();

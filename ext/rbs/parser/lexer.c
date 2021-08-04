@@ -151,14 +151,14 @@ static token lex_eq(lexstate *state, position start, int count) {
   case 1:
     switch (c) {
     case '=':
-      skipbyte(state, c, 1);
+      skip(state, c);
       return lex_eq(state, start, 2);
       break;
     case '>':
       skipbyte(state, c, 1);
       return next_token(state, pFATARROW, start);
     default:
-      return NullToken;
+      return next_token(state, pEQ, start);
     }
 
     break;

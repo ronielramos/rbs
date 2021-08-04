@@ -25,6 +25,7 @@ const char *RBS_TOKENTYPE_NAMES[] = {
   "pMINUS",
   "pPLUS",
   "pSLASH",
+  "pEQ",              /* = */
   "pEQ2",
   "pEQ3",
   "pEQT",
@@ -43,6 +44,7 @@ const char *RBS_TOKENTYPE_NAMES[] = {
   "kTOP",             /* top */
   "kTRUE",            /* true */
   "kVOID",            /* void */
+  "kTYPE",            /* type */
 
   "tLIDENT",          /* Identifiers starting with lower case */
   "tUIDENT",          /* Identifiers starting with upper case */
@@ -77,6 +79,7 @@ VALUE RBS_AST;
 VALUE RBS_AST_Comment;
 
 VALUE RBS_AST_Declarations;
+VALUE RBS_AST_Declarations_Alias;
 VALUE RBS_AST_Declarations_Constant;
 VALUE RBS_AST_Declarations_Global;
 
@@ -181,6 +184,7 @@ Init_parser(void)
   RBS_AST_Comment = rb_const_get(RBS_AST, rb_intern("Comment"));
 
   RBS_AST_Declarations = rb_const_get(RBS_AST, rb_intern("Declarations"));
+  RBS_AST_Declarations_Alias = rb_const_get(RBS_AST_Declarations, rb_intern("Alias"));
   RBS_AST_Declarations_Constant = rb_const_get(RBS_AST_Declarations, rb_intern("Constant"));
   RBS_AST_Declarations_Global = rb_const_get(RBS_AST_Declarations, rb_intern("Global"));
 
@@ -232,6 +236,7 @@ Init_parser(void)
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("singleton"), INT2FIX(kSINGLETON));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("top"), INT2FIX(kTOP));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("void"), INT2FIX(kVOID));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("type"), INT2FIX(kTYPE));
 
   rb_define_const(RBSParser, "KEYWORDS", rbsparser_Keywords);
 

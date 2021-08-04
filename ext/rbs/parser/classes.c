@@ -367,3 +367,20 @@ VALUE rbs_ast_decl_global(VALUE name, VALUE type, VALUE location, VALUE comment)
     RB_PASS_KEYWORDS
   );
 }
+
+VALUE rbs_ast_decl_alias(VALUE name, VALUE type, VALUE annotations, VALUE location, VALUE comment) {
+  VALUE args = rb_hash_new();
+  rb_hash_aset(args, ID2SYM(rb_intern("name")), name);
+  rb_hash_aset(args, ID2SYM(rb_intern("type")), type);
+  rb_hash_aset(args, ID2SYM(rb_intern("annotations")), annotations);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
+  rb_hash_aset(args, ID2SYM(rb_intern("comment")), comment);
+
+  return rb_funcallv_kw(
+    RBS_AST_Declarations_Alias,
+    rb_intern("new"),
+    1,
+    &args,
+    RB_PASS_KEYWORDS
+  );
+}
