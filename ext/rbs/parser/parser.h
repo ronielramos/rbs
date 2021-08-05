@@ -52,6 +52,7 @@ enum TokenType {
   kIN,              /* in */
   kOUT,             /* out */
   kEND,             /* end */
+  kDEF,             /* def */
 
   tLIDENT,          /* Identifiers starting with lower case */
   tUIDENT,          /* Identifiers starting with upper case */

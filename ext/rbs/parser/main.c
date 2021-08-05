@@ -50,6 +50,7 @@ const char *RBS_TOKENTYPE_NAMES[] = {
   "kIN",              /* in */
   "kOUT",             /* out */
   "kEND",             /* end */
+  "kDEF",             /* def */
 
   "tLIDENT",          /* Identifiers starting with lower case */
   "tUIDENT",          /* Identifiers starting with upper case */
@@ -290,6 +291,7 @@ Init_parser(void)
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("in"), INT2FIX(kIN));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("out"), INT2FIX(kOUT));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("end"), INT2FIX(kEND));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("def"), INT2FIX(kDEF));
 
   rb_define_const(RBSParser, "KEYWORDS", rbsparser_Keywords);
 

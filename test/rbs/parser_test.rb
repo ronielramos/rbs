@@ -8,6 +8,8 @@ class RBS::ParserTest < Test::Unit::TestCase
   def test_interface
     RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
 interface _Foo[unchecked in A]
+  def foo: () -> A
+         | { () -> void } -> void
 end
     RBS
       decls[0].tap do |decl|

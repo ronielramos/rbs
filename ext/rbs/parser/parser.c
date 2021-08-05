@@ -1,6 +1,24 @@
 #include "parser.h"
 #include "ruby/internal/symbol.h"
 
+#define KEYWORD_CASES case kBOOL:\
+  case kBOT: \
+  case kCLASS: \
+  case kFALSE: \
+  case kINSTANCE: \
+  case kINTERFACE: \
+  case kNIL: \
+  case kSELF: \
+  case kSINGLETON: \
+  case kTOP: \
+  case kTRUE: \
+  case kVOID: \
+  case kTYPE: \
+  case kUNCHECKED: \
+  case kIN: \
+  case kOUT: \
+  case kEND:
+
 typedef struct {
   VALUE required_positionals;
   VALUE optional_positionals;
@@ -42,7 +60,7 @@ static void __attribute__((noreturn)) raise_syntax_error() {
 }
 
 static void __attribute__((noreturn)) raise_syntax_error_e(parserstate *state, token tok, char *expected) {
-  rb_raise(rb_eRuntimeError, "Syntax error at line %d, expected %s, but got %s", state->current_token.start.line, expected, RBS_TOKENTYPE_NAMES[tok.type]);
+  rb_raise(rb_eRuntimeError, "Syntax error at line %d char %d, expected %s, but got %s", tok.start.line, tok.start.column, expected, RBS_TOKENTYPE_NAMES[tok.type]);
 }
 
 VALUE parse_type_name(parserstate *state) {
@@ -503,8 +521,8 @@ static void initialize_method_params(method_params *params){
 
 /**
  * ... `(` params `)` `->` Type ...
- *    ^                                 start
- *                             ^        end
+ *  ^^^                                 start
+ *                         ^^^^         end
  *
  * */
 static void parse_function(parserstate *state, VALUE *function, VALUE *block) {
@@ -844,9 +862,9 @@ VALUE parse_type(parserstate *state) {
 }
 
 /*
-   ... `[` vars `]` function ...
-      ^
-                            ^
+   ... tok `[` vars `]` function ...
+       ^^^                                current(start)
+                              ^^^         current(end)
 */
 VALUE parse_method_type(parserstate *state) {
   VALUE function = Qnil;
@@ -967,8 +985,6 @@ VALUE parse_annotation(parserstate *state) {
   VALUE string = rb_enc_str_new(p, bytes, enc);
   VALUE location = rbs_location_current_token(state);
 
-  parser_advance(state);
-
   return rbs_ast_annotation(string, location);
 }
 
@@ -1040,6 +1056,241 @@ VALUE parse_module_type_params(parserstate *state) {
 }
 
 /*
+  ... tok %a{abc def} %a(xyzzy) tok ...
+      ^^^                                current (start)
+                      ^^^^^^^^^          current (end)
+*/
+void parse_annotations(parserstate *state, VALUE annotations, position *annot_pos) {
+  *annot_pos = NullPosition;
+
+  while (true) {
+    if (state->next_token.type == tANNOTATION) {
+      parser_advance(state);
+
+      if (null_position_p((*annot_pos))) {
+        *annot_pos = state->current_token.start;
+      }
+
+      rb_ary_push(annotations, parse_annotation(state));
+    } else {
+      break;
+    }
+  }
+}
+
+/*
+  ... tok ident `?`
+      ^^^
+                ^^^
+
+  ... tok ident
+      ^^^
+          ^^^^^
+
+  ... tok kDEF
+      ^^^
+          ^^^^
+
+  ... tok opr
+      ^^^
+          ^^^
+*/
+VALUE parse_method_name(parserstate *state, position *start, position *end) {
+  parser_advance(state);
+
+  switch (state->current_token.type)
+  {
+  case tUIDENT:
+  case tLIDENT:
+  case tULIDENT:
+  KEYWORD_CASES
+    if (state->next_token.type == pQUESTION && state->current_token.end.byte_pos == state->next_token.start.byte_pos) {
+      *start = state->current_token.start;
+      *end = state->next_token.end;
+      parser_advance(state);
+
+      ID id = rb_intern3(
+        RSTRING_PTR(state->lexstate->string) + start->byte_pos,
+        end->byte_pos - start->byte_pos,
+        rb_enc_get(state->lexstate->string)
+      );
+
+      return ID2SYM(id);
+    } else {
+      *start = state->current_token.start;
+      *end = state->current_token.end;
+      return ID2SYM(INTERN_TOKEN(state, state->current_token));
+    }
+
+  case tBANGIDENT:
+  case tEQIDENT:
+  case tQIDENT:
+    *start = state->current_token.start;
+    *end = state->current_token.end;
+    return ID2SYM(INTERN_TOKEN(state, state->current_token));
+
+  default:
+    raise_syntax_error_e(
+      state,
+      state->current_token,
+      "method name"
+    );
+  }
+}
+
+typedef enum {
+  INSTANCE_KIND,
+  SINGLETON_KIND,
+  INSTANCE_SINGLETON_KIND
+} InstanceSingletonKind;
+
+/*
+  ... tok `self` `.` ...
+      ^^^
+                 ^^^
+
+  ... tok ...
+      ^^^
+
+  ... tok `self` `?` `.` ...
+      ^^^
+                     ^^^
+*/
+InstanceSingletonKind parse_instance_singleton_kind(parserstate *state) {
+  InstanceSingletonKind kind = INSTANCE_KIND;
+
+  if (state->next_token.type == kSELF) {
+    parser_advance(state);
+
+    if (state->next_token.type == pDOT) {
+      parser_advance(state);
+      kind = SINGLETON_KIND;
+    } else if (
+      state->next_token.type == pQUESTION
+    && state->next_token.end.char_pos == state->next_token2.start.char_pos
+    && state->next_token2.type == pDOT) {
+      parser_advance(state);
+      parser_advance(state);
+      kind = INSTANCE_SINGLETON_KIND;
+    } else {
+      raise_syntax_error_e(state, state->next_token, "instance/singleton kind, `self.` or `self?.`");
+    }
+  }
+
+  return kind;
+}
+
+/*
+  ... `def` name `:` method_type ...
+      ^^^^^                            current (start)
+                             ^^^       current (end)
+*/
+VALUE parse_member_def(parserstate *state, position comment_pos, VALUE annotations) {
+  position start = state->current_token.start;
+  comment_pos = nonnull_pos_or(comment_pos, start);
+
+  VALUE comment = get_comment(state, comment_pos.line);
+
+  InstanceSingletonKind kind = parse_instance_singleton_kind(state);
+
+  position name_start = NullPosition;
+  position name_end = NullPosition;
+  print_parser(state);
+  VALUE name = parse_method_name(state, &name_start, &name_end);
+  VALUE method_types = rb_ary_new();
+  VALUE overload = Qfalse;
+
+  print_parser(state);
+  parser_advance_assert(state, pCOLON);
+
+  bool loop = true;
+  while (loop) {
+    switch (state->next_token.type) {
+    case pLPAREN:
+    case pARROW:
+    case pLBRACE:
+      rb_ary_push(method_types, parse_method_type(state));
+      break;
+
+    case pDOT3:
+      overload = Qtrue;
+      parser_advance(state);
+      loop = false;
+      break;
+
+    default:
+      raise_syntax_error_e(
+        state,
+        state->next_token,
+        "method type or `...`"
+      );
+    }
+
+    if (state->next_token.type == pBAR) {
+      parser_advance(state);
+    } else {
+      loop = false;
+    }
+  }
+
+  VALUE k;
+  switch (kind) {
+  case INSTANCE_KIND:
+    k = ID2SYM(rb_intern("instance"));
+    break;
+  case SINGLETON_KIND:
+    k = ID2SYM(rb_intern("singleton"));
+    break;
+  case INSTANCE_SINGLETON_KIND:
+    k = ID2SYM(rb_intern("singleton_instance"));
+    break;
+  }
+
+  VALUE location = rbs_location_pp(state->buffer, &start, &state->current_token.end);
+
+  return rbs_ast_members_method_definition(
+    name,
+    k,
+    method_types,
+    annotations,
+    location,
+    comment,
+    overload
+  );
+}
+
+VALUE parse_interface_members(parserstate *state) {
+  VALUE members = rb_ary_new();
+
+  while (state->next_token.type != kEND) {
+    VALUE annotations = rb_ary_new();
+    position annot_pos = NullPosition;
+
+    parse_annotations(state, annotations, &annot_pos);
+
+    parser_advance(state);
+
+    VALUE member;
+    switch (state->current_token.type) {
+    case kDEF:
+      member = parse_member_def(state, annot_pos, annotations);
+      break;
+
+    default:
+      raise_syntax_error_e(
+        state,
+        state->current_token,
+        "interface member"
+      );
+    }
+
+    rb_ary_push(members, member);
+  }
+
+  return members;
+}
+
+/*
   ... `interface` interface_name ... `end` ...
       ^^^^^^^^^^^                                current (start)
                                      ^^^^^       current (end)
@@ -1052,6 +1303,7 @@ VALUE parse_interface_decl(parserstate *state, position comment_pos, VALUE annot
 
   VALUE name = parse_interface_name(state);
   VALUE params = parse_module_type_params(state);
+  VALUE members = parse_interface_members(state);
 
   parser_advance_assert(state, kEND);
 
@@ -1060,7 +1312,7 @@ VALUE parse_interface_decl(parserstate *state, position comment_pos, VALUE annot
   return rbs_ast_decl_interface(
     name,
     params,
-    rb_ary_new(),
+    members,
     annotations,
     rbs_location_pp(state->buffer, &start, &end),
     get_comment(state, comment_pos.line)
@@ -1071,34 +1323,20 @@ VALUE parse_decl(parserstate *state) {
   VALUE annotations = rb_ary_new();
   position annot_pos = NullPosition;
 
+  parse_annotations(state, annotations, &annot_pos);
+
   parser_advance(state);
-
-  while (true) {
-    if (state->current_token.type == tANNOTATION) {
-      if (null_position_p(annot_pos)) {
-        annot_pos = state->current_token.start;
-      }
-      rb_ary_push(annotations, parse_annotation(state));
-    } else {
-      break;
-    }
-  }
-
   switch (state->current_token.type)
   {
   case tUIDENT:
   case pCOLON2:
     return parse_const_decl(state);
-
   case tGIDENT:
     return parse_global_decl(state);
-
   case kTYPE:
     return parse_type_decl(state, annot_pos, annotations);
-
   case kINTERFACE:
     return parse_interface_decl(state, annot_pos, annotations);
-
   default:
     raise_syntax_error_e(
       state,
