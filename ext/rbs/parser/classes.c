@@ -336,6 +336,20 @@ VALUE rbs_ast_comment(VALUE string, VALUE location) {
   );
 }
 
+VALUE rbs_ast_annotation(VALUE string, VALUE location) {
+  VALUE args = rb_hash_new();
+  rb_hash_aset(args, ID2SYM(rb_intern("string")), string);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
+
+  return rb_funcallv_kw(
+    RBS_AST_Annotation,
+    rb_intern("new"),
+    1,
+    &args,
+    RB_PASS_KEYWORDS
+  );
+}
+
 VALUE rbs_ast_decl_constant(VALUE name, VALUE type, VALUE location, VALUE comment) {
   VALUE args = rb_hash_new();
   rb_hash_aset(args, ID2SYM(rb_intern("name")), name);

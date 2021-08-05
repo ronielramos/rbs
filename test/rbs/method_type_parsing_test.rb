@@ -111,8 +111,8 @@ TYPE
 People::Size: Integer
 
 # bar
+%a{hoge} %a|huga|
 type json = Integer | bool
-type String::t = String
 
 # $Foo is foo!
 #

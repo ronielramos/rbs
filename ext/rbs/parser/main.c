@@ -31,6 +31,7 @@ const char *RBS_TOKENTYPE_NAMES[] = {
   "pEQT",
   "pBANG",
   "pQUESTION",
+  "pPERCENT",
 
   "kBOOL",            /* bool */
   "kBOT",             /* bot */
@@ -63,6 +64,7 @@ const char *RBS_TOKENTYPE_NAMES[] = {
   "tSQSTRING",        /* Single quoted string */
   "tINTEGER",         /* Integer */
   "tSYMBOL",          /* Symbol */
+  "tANNOTATION",      /* Annotation */
 };
 
 
@@ -77,6 +79,7 @@ VALUE sym_interface;
 VALUE RBS;
 VALUE RBS_AST;
 VALUE RBS_AST_Comment;
+VALUE RBS_AST_Annotation;
 
 VALUE RBS_AST_Declarations;
 VALUE RBS_AST_Declarations_Alias;
@@ -174,6 +177,7 @@ rbsparser_parse_signature(VALUE self, VALUE buffer, VALUE line, VALUE column)
   parser_advance(&parser);
   return parse_signature(&parser);
 }
+
 void
 Init_parser(void)
 {
@@ -182,6 +186,7 @@ Init_parser(void)
   RBS = rb_const_get(rb_cObject, id_RBS);
   RBS_AST = rb_const_get(RBS, rb_intern("AST"));
   RBS_AST_Comment = rb_const_get(RBS_AST, rb_intern("Comment"));
+  RBS_AST_Annotation = rb_const_get(RBS_AST, rb_intern("Annotation"));
 
   RBS_AST_Declarations = rb_const_get(RBS_AST, rb_intern("Declarations"));
   RBS_AST_Declarations_Alias = rb_const_get(RBS_AST_Declarations, rb_intern("Alias"));

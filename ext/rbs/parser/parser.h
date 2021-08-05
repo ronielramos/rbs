@@ -33,6 +33,7 @@ enum TokenType {
   pEQT,             /* =~ */
   pBANG,            /* ! */
   pQUESTION,        /* ? */
+  pPERCENT,         /* % */
 
   kBOOL,            /* bool */
   kBOT,             /* bot */
@@ -65,6 +66,7 @@ enum TokenType {
   tSQSTRING,        /* Single quoted string */
   tINTEGER,         /* Integer */
   tSYMBOL,          /* Symbol */
+  tANNOTATION,      /* Annotation */
 };
 
 typedef struct {
@@ -138,6 +140,7 @@ extern VALUE sym_interface;
 
 extern VALUE RBS_AST;
 extern VALUE RBS_AST_Comment;
+extern VALUE RBS_AST_Annotation;
 extern VALUE RBS_AST_Declarations;
 extern VALUE RBS_AST_Declarations_Alias;
 extern VALUE RBS_AST_Declarations_Constant;
@@ -201,6 +204,7 @@ VALUE rbs_variable(VALUE name, VALUE location);
 VALUE rbs_method_type(VALUE type_params, VALUE type, VALUE block, VALUE location);
 
 VALUE rbs_ast_comment(VALUE string, VALUE location);
+VALUE rbs_ast_annotation(VALUE string, VALUE location);
 VALUE rbs_ast_decl_constant(VALUE name, VALUE type, VALUE location, VALUE comment);
 VALUE rbs_ast_decl_global(VALUE name, VALUE type, VALUE location, VALUE comment);
 VALUE rbs_ast_decl_alias(VALUE name, VALUE type, VALUE annotations, VALUE location, VALUE comment);
@@ -221,3 +225,8 @@ void insert_comment_line(parserstate *state, token token);
 VALUE get_comment(parserstate *state, int subject_line);
 
 extern const char *RBS_TOKENTYPE_NAMES[];
+
+
+#define null_position_p(pos) (pos.byte_pos == -1)
+#define nonnull_pos_or(pos1, pos2) (null_position_p(pos1) ? pos2 : pos1)
+

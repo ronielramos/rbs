@@ -11,7 +11,7 @@
 #define peek(state) rb_enc_mbc_to_codepoint(RSTRING_PTR(state->string) + state->current.byte_pos, RSTRING_END(state->string), rb_enc_get(state->string))
 
 token NullToken = { NullType };
-position NullPosition = { 0 };
+position NullPosition = { -1 };
 
 unsigned int peekn(lexstate *state, unsigned int chars[], size_t length) {
   int byteoffset = 0;
@@ -537,6 +537,64 @@ static token lex_colon(lexstate *state, position start) {
   }
 }
 
+/*
+    ... `%` `a` `{` ... `}` ...
+       ^                         start
+           ^                     current
+                           ^     current (exit)
+                    ---          token
+*/
+static token lex_percent(lexstate *state, position start) {
+  unsigned int cs[2];
+  unsigned int end_char;
+
+  peekn(state, cs, 2);
+
+  if (cs[0] != 'a') {
+    return next_token(state, pPERCENT, start);
+  }
+
+  switch (cs[1])
+  {
+  case '{':
+    end_char = '}';
+    break;
+  case '(':
+    end_char = ')';
+    break;
+  case '[':
+    end_char = ']';
+    break;
+  case '|':
+    end_char = '|';
+    break;
+  case '<':
+    end_char = '>';
+    break;
+  default:
+    return next_token(state, pPERCENT, start);
+  }
+
+  skip(state, cs[0]);
+  skip(state, cs[1]);
+  start = state->current;
+
+  token tok;
+
+  unsigned int c;
+
+  while ((c = peek(state)) != '\0') {
+    if (c == end_char) {
+      tok = next_token(state, tANNOTATION, start);
+      skip(state, c);
+      return tok;
+    }
+    skip(state, c);
+  }
+
+  return NullToken;
+}
+
 token rbsparser_next_token(lexstate *state) {
   token tok = NullToken;
   position start = NullPosition;
@@ -562,7 +620,6 @@ token rbsparser_next_token(lexstate *state) {
       break;
     }
   }
-
 
   /* ... c d ..                */
   /*      ^     state->current */
@@ -618,6 +675,9 @@ token rbsparser_next_token(lexstate *state) {
       break;
     case '\'':
       tok = lex_sqstring(state, start);
+      break;
+    case  '%':
+      tok = lex_percent(state, start);
       break;
     default:
       if (rb_isalpha(c) && rb_isupper(c)) {

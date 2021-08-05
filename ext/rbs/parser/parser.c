@@ -887,8 +887,9 @@ VALUE parse_const_decl(parserstate *state) {
   );
 }
 
-VALUE parse_type_decl(parserstate *state) {
+VALUE parse_type_decl(parserstate *state, position comment_pos, VALUE annotations) {
   position start = state->current_token.start;
+  comment_pos = nonnull_pos_or(comment_pos, start);
 
   parser_advance(state);
   VALUE typename = parse_alias_name(state);
@@ -901,14 +902,43 @@ VALUE parse_type_decl(parserstate *state) {
   return rbs_ast_decl_alias(
     typename,
     type,
-    rb_ary_new(),
+    annotations,
     rbs_location_pp(state->buffer, &start, &end),
-    get_comment(state, start.line)
+    get_comment(state, comment_pos.line)
   );
 }
 
-VALUE parse_decl(parserstate *state) {
+VALUE parse_annotation(parserstate *state) {
+  VALUE content = rb_funcall(state->buffer, rb_intern("content"), 0);
+  rb_encoding *enc = rb_enc_get(content);
+
+  char *p = peek_token(state->lexstate, state->current_token);
+  int bytes = state->current_token.end.byte_pos - state->current_token.start.byte_pos;
+
+  VALUE string = rb_enc_str_new(p, bytes, enc);
+  VALUE location = rbs_location_current_token(state);
+
   parser_advance(state);
+
+  return rbs_ast_annotation(string, location);
+}
+
+VALUE parse_decl(parserstate *state) {
+  VALUE annotations = rb_ary_new();
+  position annot_pos = NullPosition;
+
+  parser_advance(state);
+
+  while (true) {
+    if (state->current_token.type == tANNOTATION) {
+      if (null_position_p(annot_pos)) {
+        annot_pos = state->current_token.start;
+      }
+      rb_ary_push(annotations, parse_annotation(state));
+    } else {
+      break;
+    }
+  }
 
   switch (state->current_token.type)
   {
@@ -920,10 +950,14 @@ VALUE parse_decl(parserstate *state) {
     return parse_global_decl(state);
 
   case kTYPE:
-    return parse_type_decl(state);
+    return parse_type_decl(state, annot_pos, annotations);
 
   default:
-    raise_syntax_error();
+    raise_syntax_error_e(
+      state,
+      state->current_token,
+      "declaration"
+    );
   }
 }
 
