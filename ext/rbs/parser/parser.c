@@ -757,6 +757,8 @@ static VALUE parse_simple(parserstate *state) {
     }
     // fallthrough for type name
   }
+  case tULIDENT:
+    // fallthrough
   case pCOLON2: {
     VALUE typename = parse_type_name(state);
     VALUE types = rb_ary_new();
