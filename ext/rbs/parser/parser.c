@@ -1195,12 +1195,10 @@ VALUE parse_member_def(parserstate *state, position comment_pos, VALUE annotatio
 
   position name_start = NullPosition;
   position name_end = NullPosition;
-  print_parser(state);
   VALUE name = parse_method_name(state, &name_start, &name_end);
   VALUE method_types = rb_ary_new();
   VALUE overload = Qfalse;
 
-  print_parser(state);
   parser_advance_assert(state, pCOLON);
 
   bool loop = true;

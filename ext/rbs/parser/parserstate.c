@@ -174,7 +174,6 @@ VALUE get_comment(parserstate *state, int subject_line) {
 
   if (!comment) return Qnil;
 
-  printf("comment->end.line = %d\n", comment->end.line);
   if (comment->end.line != subject_line - 1) return Qnil;
 
   VALUE content = rb_funcall(state->buffer, rb_intern("content"), 0);
