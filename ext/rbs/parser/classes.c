@@ -350,6 +350,26 @@ VALUE rbs_ast_annotation(VALUE string, VALUE location) {
   );
 }
 
+VALUE rbs_ast_decl_module_type_params() {
+  return rb_funcall(RBS_AST_Declarations_ModuleTypeParams, rb_intern("new"), 0);
+}
+
+VALUE rbs_ast_decl_module_type_params_param(VALUE name, VALUE variance, VALUE skip_validation, VALUE location) {
+  VALUE args = rb_hash_new();
+  rb_hash_aset(args, ID2SYM(rb_intern("name")), name);
+  rb_hash_aset(args, ID2SYM(rb_intern("variance")), variance);
+  rb_hash_aset(args, ID2SYM(rb_intern("skip_validation")), skip_validation);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
+
+  return rb_funcallv_kw(
+    RBS_AST_Declarations_ModuleTypeParams_TypeParam,
+    rb_intern("new"),
+    1,
+    &args,
+    RB_PASS_KEYWORDS
+  );
+}
+
 VALUE rbs_ast_decl_constant(VALUE name, VALUE type, VALUE location, VALUE comment) {
   VALUE args = rb_hash_new();
   rb_hash_aset(args, ID2SYM(rb_intern("name")), name);
@@ -392,6 +412,126 @@ VALUE rbs_ast_decl_alias(VALUE name, VALUE type, VALUE annotations, VALUE locati
 
   return rb_funcallv_kw(
     RBS_AST_Declarations_Alias,
+    rb_intern("new"),
+    1,
+    &args,
+    RB_PASS_KEYWORDS
+  );
+}
+
+VALUE rbs_ast_decl_interface(VALUE name, VALUE type_params, VALUE members, VALUE annotations, VALUE location, VALUE comment) {
+  VALUE args = rb_hash_new();
+  rb_hash_aset(args, ID2SYM(rb_intern("name")), name);
+  rb_hash_aset(args, ID2SYM(rb_intern("type_params")), type_params);
+  rb_hash_aset(args, ID2SYM(rb_intern("members")), members);
+  rb_hash_aset(args, ID2SYM(rb_intern("annotations")), annotations);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
+  rb_hash_aset(args, ID2SYM(rb_intern("comment")), comment);
+
+  return rb_funcallv_kw(
+    RBS_AST_Declarations_Interface,
+    rb_intern("new"),
+    1,
+    &args,
+    RB_PASS_KEYWORDS
+  );
+}
+
+VALUE rbs_ast_members_method_definition(VALUE name, VALUE kind, VALUE types, VALUE annotations, VALUE location, VALUE comment, VALUE overload) {
+  VALUE args = rb_hash_new();
+  rb_hash_aset(args, ID2SYM(rb_intern("name")), name);
+  rb_hash_aset(args, ID2SYM(rb_intern("kind")), kind);
+  rb_hash_aset(args, ID2SYM(rb_intern("types")), types);
+  rb_hash_aset(args, ID2SYM(rb_intern("annotations")), annotations);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
+  rb_hash_aset(args, ID2SYM(rb_intern("comment")), comment);
+  rb_hash_aset(args, ID2SYM(rb_intern("overload")), overload);
+
+  return rb_funcallv_kw(
+    RBS_AST_Members_MethodDefinition,
+    rb_intern("new"),
+    1,
+    &args,
+    RB_PASS_KEYWORDS
+  );
+}
+
+VALUE rbs_ast_members_variable(VALUE klass, VALUE name, VALUE type, VALUE location, VALUE comment) {
+  VALUE args = rb_hash_new();
+  rb_hash_aset(args, ID2SYM(rb_intern("name")), name);
+  rb_hash_aset(args, ID2SYM(rb_intern("type")), type);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
+  rb_hash_aset(args, ID2SYM(rb_intern("comment")), comment);
+
+  return rb_funcallv_kw(
+    klass,
+    rb_intern("new"),
+    1,
+    &args,
+    RB_PASS_KEYWORDS
+  );
+}
+
+VALUE rbs_ast_members_mixin(VALUE klass, VALUE name, VALUE module_args, VALUE annotations, VALUE location, VALUE comment) {
+  VALUE args = rb_hash_new();
+  rb_hash_aset(args, ID2SYM(rb_intern("name")), name);
+  rb_hash_aset(args, ID2SYM(rb_intern("type")), module_args);
+  rb_hash_aset(args, ID2SYM(rb_intern("annotations")), annotations);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
+  rb_hash_aset(args, ID2SYM(rb_intern("comment")), comment);
+
+  return rb_funcallv_kw(
+    klass,
+    rb_intern("new"),
+    1,
+    &args,
+    RB_PASS_KEYWORDS
+  );
+}
+
+VALUE rbs_ast_members_attribute(VALUE klass, VALUE name, VALUE type, VALUE ivar_name, VALUE kind, VALUE annotations, VALUE location, VALUE comment) {
+  VALUE args = rb_hash_new();
+  rb_hash_aset(args, ID2SYM(rb_intern("name")), name);
+  rb_hash_aset(args, ID2SYM(rb_intern("type")), type);
+  rb_hash_aset(args, ID2SYM(rb_intern("ivar_name")), ivar_name);
+  rb_hash_aset(args, ID2SYM(rb_intern("klass")), kind);
+  rb_hash_aset(args, ID2SYM(rb_intern("annotations")), annotations);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
+  rb_hash_aset(args, ID2SYM(rb_intern("comment")), comment);
+
+  return rb_funcallv_kw(
+    klass,
+    rb_intern("new"),
+    1,
+    &args,
+    RB_PASS_KEYWORDS
+  );
+}
+
+VALUE rbs_ast_members_visibility(VALUE klass, VALUE location) {
+  VALUE args = rb_hash_new();
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
+
+  return rb_funcallv_kw(
+    klass,
+    rb_intern("new"),
+    1,
+    &args,
+    RB_PASS_KEYWORDS
+  );
+}
+
+VALUE rbs_ast_members_alias(VALUE new_name, VALUE old_name, VALUE kind, VALUE annotations, VALUE location, VALUE comment) {
+  VALUE args = rb_hash_new();
+  rb_hash_aset(args, ID2SYM(rb_intern("new_name")), new_name);
+  rb_hash_aset(args, ID2SYM(rb_intern("old_name")), old_name);
+  rb_hash_aset(args, ID2SYM(rb_intern("kind")), kind);
+  rb_hash_aset(args, ID2SYM(rb_intern("annotations")), annotations);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
+  rb_hash_aset(args, ID2SYM(rb_intern("comment")), comment);
+
+  return rb_funcallv_kw(
+    RBS_AST_Members_Alias,
     rb_intern("new"),
     1,
     &args,

@@ -47,7 +47,11 @@ enum TokenType {
   kTOP,             /* top */
   kTRUE,            /* true */
   kVOID,            /* void */
-  kTYPE,            /* kTYPE */
+  kTYPE,            /* type */
+  kUNCHECKED,       /* unchecked */
+  kIN,              /* in */
+  kOUT,             /* out */
+  kEND,             /* end */
 
   tLIDENT,          /* Identifiers starting with lower case */
   tUIDENT,          /* Identifiers starting with upper case */
@@ -141,10 +145,37 @@ extern VALUE sym_interface;
 extern VALUE RBS_AST;
 extern VALUE RBS_AST_Comment;
 extern VALUE RBS_AST_Annotation;
+
 extern VALUE RBS_AST_Declarations;
+
+/**
+ * RBS::AST::Declarations::ModuleTypeParams
+ * */
+extern VALUE RBS_AST_Declarations_ModuleTypeParams;
+/**
+ * RBS::AST::Declarations::ModuleTypeParams::TypeParam
+ * */
+extern VALUE RBS_AST_Declarations_ModuleTypeParams_TypeParam;
+
 extern VALUE RBS_AST_Declarations_Alias;
 extern VALUE RBS_AST_Declarations_Constant;
 extern VALUE RBS_AST_Declarations_Global;
+extern VALUE RBS_AST_Declarations_Interface;
+
+extern VALUE RBS_AST_Members;
+extern VALUE RBS_AST_Members_Alias;
+extern VALUE RBS_AST_Members_AttrAccessor;
+extern VALUE RBS_AST_Members_AttrReader;
+extern VALUE RBS_AST_Members_AttrWriter;
+extern VALUE RBS_AST_Members_ClassInstanceVariable;
+extern VALUE RBS_AST_Members_ClassVariable;
+extern VALUE RBS_AST_Members_Extend;
+extern VALUE RBS_AST_Members_Include;
+extern VALUE RBS_AST_Members_InstanceVariable;
+extern VALUE RBS_AST_Members_MethodDefinition;
+extern VALUE RBS_AST_Members_Prepend;
+extern VALUE RBS_AST_Members_Private;
+extern VALUE RBS_AST_Members_Public;
 
 extern VALUE RBS_Location;
 extern VALUE RBS_Namespace;
@@ -205,9 +236,28 @@ VALUE rbs_method_type(VALUE type_params, VALUE type, VALUE block, VALUE location
 
 VALUE rbs_ast_comment(VALUE string, VALUE location);
 VALUE rbs_ast_annotation(VALUE string, VALUE location);
+
+/**
+ * RBS::AST::Declarations::ModuleTypeParams.new()
+ * */
+VALUE rbs_ast_decl_module_type_params();
+
+/**
+ * RBS::AST::Declarations::ModuleTypeParams::TypeParam.new(name: name, variance: variance, skip_validation: skip_validation);
+ * */
+VALUE rbs_ast_decl_module_type_params_param(VALUE name, VALUE variance, VALUE skip_validation, VALUE location);
+
 VALUE rbs_ast_decl_constant(VALUE name, VALUE type, VALUE location, VALUE comment);
 VALUE rbs_ast_decl_global(VALUE name, VALUE type, VALUE location, VALUE comment);
 VALUE rbs_ast_decl_alias(VALUE name, VALUE type, VALUE annotations, VALUE location, VALUE comment);
+VALUE rbs_ast_decl_interface(VALUE name, VALUE type_params, VALUE members, VALUE annotations, VALUE location, VALUE comment);
+
+VALUE rbs_ast_members_method_definition(VALUE name, VALUE kind, VALUE types, VALUE annotations, VALUE location, VALUE comment, VALUE overload);
+VALUE rbs_ast_members_variable(VALUE klass, VALUE name, VALUE type, VALUE location, VALUE comment);
+VALUE rbs_ast_members_mixin(VALUE klass, VALUE name, VALUE args, VALUE annotations, VALUE location, VALUE comment);
+VALUE rbs_ast_members_attribute(VALUE klass, VALUE name, VALUE type, VALUE ivar_name, VALUE kind, VALUE annotations, VALUE location, VALUE comment);
+VALUE rbs_ast_members_visibility(VALUE klass, VALUE location);
+VALUE rbs_ast_members_alias(VALUE new_name, VALUE old_name, VALUE kind, VALUE annotations, VALUE location, VALUE comment);
 
 void rbs_unescape_string(VALUE string);
 

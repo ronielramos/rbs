@@ -46,6 +46,10 @@ const char *RBS_TOKENTYPE_NAMES[] = {
   "kTRUE",            /* true */
   "kVOID",            /* void */
   "kTYPE",            /* type */
+  "kUNCHECKED",       /* unchecked */
+  "kIN",              /* in */
+  "kOUT",             /* out */
+  "kEND",             /* end */
 
   "tLIDENT",          /* Identifiers starting with lower case */
   "tUIDENT",          /* Identifiers starting with upper case */
@@ -82,9 +86,29 @@ VALUE RBS_AST_Comment;
 VALUE RBS_AST_Annotation;
 
 VALUE RBS_AST_Declarations;
+
+VALUE RBS_AST_Declarations_ModuleTypeParams;
+VALUE RBS_AST_Declarations_ModuleTypeParams_TypeParam;
+
 VALUE RBS_AST_Declarations_Alias;
 VALUE RBS_AST_Declarations_Constant;
 VALUE RBS_AST_Declarations_Global;
+VALUE RBS_AST_Declarations_Interface;
+
+VALUE RBS_AST_Members;
+VALUE RBS_AST_Members_Alias;
+VALUE RBS_AST_Members_AttrAccessor;
+VALUE RBS_AST_Members_AttrReader;
+VALUE RBS_AST_Members_AttrWriter;
+VALUE RBS_AST_Members_ClassInstanceVariable;
+VALUE RBS_AST_Members_ClassVariable;
+VALUE RBS_AST_Members_Extend;
+VALUE RBS_AST_Members_Include;
+VALUE RBS_AST_Members_InstanceVariable;
+VALUE RBS_AST_Members_MethodDefinition;
+VALUE RBS_AST_Members_Prepend;
+VALUE RBS_AST_Members_Private;
+VALUE RBS_AST_Members_Public;
 
 VALUE RBS_Location;
 VALUE RBS_Namespace;
@@ -189,9 +213,29 @@ Init_parser(void)
   RBS_AST_Annotation = rb_const_get(RBS_AST, rb_intern("Annotation"));
 
   RBS_AST_Declarations = rb_const_get(RBS_AST, rb_intern("Declarations"));
+
+  RBS_AST_Declarations_ModuleTypeParams = rb_const_get(RBS_AST_Declarations, rb_intern("ModuleTypeParams"));
+  RBS_AST_Declarations_ModuleTypeParams_TypeParam = rb_const_get(RBS_AST_Declarations_ModuleTypeParams, rb_intern("TypeParam"));
+
   RBS_AST_Declarations_Alias = rb_const_get(RBS_AST_Declarations, rb_intern("Alias"));
   RBS_AST_Declarations_Constant = rb_const_get(RBS_AST_Declarations, rb_intern("Constant"));
   RBS_AST_Declarations_Global = rb_const_get(RBS_AST_Declarations, rb_intern("Global"));
+  RBS_AST_Declarations_Interface = rb_const_get(RBS_AST_Declarations, rb_intern("Interface"));
+
+  RBS_AST_Members = rb_const_get(RBS_AST, rb_intern("Members"));
+  RBS_AST_Members_Alias = rb_const_get(RBS_AST_Members, rb_intern("Alias"));
+  RBS_AST_Members_AttrAccessor = rb_const_get(RBS_AST_Members, rb_intern("AttrAccessor"));
+  RBS_AST_Members_AttrReader = rb_const_get(RBS_AST_Members, rb_intern("AttrReader"));
+  RBS_AST_Members_AttrWriter = rb_const_get(RBS_AST_Members, rb_intern("AttrWriter"));
+  RBS_AST_Members_ClassInstanceVariable = rb_const_get(RBS_AST_Members, rb_intern("ClassInstanceVariable"));
+  RBS_AST_Members_ClassVariable = rb_const_get(RBS_AST_Members, rb_intern("ClassVariable"));
+  RBS_AST_Members_Extend = rb_const_get(RBS_AST_Members, rb_intern("Extend"));
+  RBS_AST_Members_Include = rb_const_get(RBS_AST_Members, rb_intern("Include"));
+  RBS_AST_Members_InstanceVariable = rb_const_get(RBS_AST_Members, rb_intern("InstanceVariable"));
+  RBS_AST_Members_MethodDefinition = rb_const_get(RBS_AST_Members, rb_intern("MethodDefinition"));
+  RBS_AST_Members_Prepend = rb_const_get(RBS_AST_Members, rb_intern("Prepend"));
+  RBS_AST_Members_Private = rb_const_get(RBS_AST_Members, rb_intern("Private"));
+  RBS_AST_Members_Public = rb_const_get(RBS_AST_Members, rb_intern("Public"));
 
   RBS_Location = rb_const_get(RBS, rb_intern("Location"));
   RBS_Namespace = rb_const_get(RBS, rb_intern("Namespace"));
@@ -242,6 +286,10 @@ Init_parser(void)
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("top"), INT2FIX(kTOP));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("void"), INT2FIX(kVOID));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("type"), INT2FIX(kTYPE));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("unchecked"), INT2FIX(kUNCHECKED));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("in"), INT2FIX(kIN));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("out"), INT2FIX(kOUT));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("end"), INT2FIX(kEND));
 
   rb_define_const(RBSParser, "KEYWORDS", rbsparser_Keywords);
 

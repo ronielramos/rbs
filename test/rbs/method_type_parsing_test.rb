@@ -10,17 +10,17 @@ class RBS::MethodTypeParsingTest < Test::Unit::TestCase
 
   def parse_type(string)
     buffer = Buffer.new(content: string.encode(Encoding::UTF_8), name: "sample.rbs")
-    RBS::Parser._parse_type(buffer, 1, 0)
+    RBS::Parser.parse_type(buffer)
   end
 
   def parse_method_type(string)
     buffer = Buffer.new(content: string.encode(Encoding::UTF_8), name: "sample.rbs")
-    RBS::Parser._parse_method_type(buffer, 1, 0)
+    RBS::Parser.parse_method_type(buffer)
   end
 
   def parse_signature(string)
     buffer = Buffer.new(content: string.encode(Encoding::UTF_8), name: "sample.rbs")
-    RBS::Parser._parse_signature(buffer, 1, 0)
+    RBS::Parser.parse_signature(buffer)
   end
 
   def test_tokenizer
