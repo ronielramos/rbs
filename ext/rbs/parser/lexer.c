@@ -10,9 +10,85 @@
  * */
 #define peek(state) rb_enc_mbc_to_codepoint(RSTRING_PTR(state->string) + state->current.byte_pos, RSTRING_END(state->string), rb_enc_get(state->string))
 
+static const char *RBS_TOKENTYPE_NAMES[] = {
+  "NullType",
+  "pEOF",
+
+  "pLPAREN",
+  "pRPAREN",
+  "pCOLON",
+  "pCOLON2",
+  "pLBRACKET",
+  "pRBRACKET",
+  "pLBRACE",
+  "pRBRACE",
+  "pHAT",
+  "pARROW",
+  "pFATARROW",
+  "pCOMMA",
+  "pBAR",
+  "pAMP",
+  "pSTAR",
+  "pSTAR2",
+  "pDOT",
+  "pDOT3",
+  "pMINUS",
+  "pPLUS",
+  "pSLASH",
+  "pEQ",              /* = */
+  "pEQ2",
+  "pEQ3",
+  "pEQT",
+  "pBANG",
+  "pQUESTION",
+  "pPERCENT",
+
+  "kBOOL",            /* bool */
+  "kBOT",             /* bot */
+  "kCLASS",           /* class */
+  "kFALSE",           /* kFALSE */
+  "kINSTANCE",        /* instance */
+  "kINTERFACE",       /* interface */
+  "kNIL",             /* nil */
+  "kSELF",            /* self */
+  "kSINGLETON",       /* singleton */
+  "kTOP",             /* top */
+  "kTRUE",            /* true */
+  "kVOID",            /* void */
+  "kTYPE",            /* type */
+  "kUNCHECKED",       /* unchecked */
+  "kIN",              /* in */
+  "kOUT",             /* out */
+  "kEND",             /* end */
+  "kDEF",             /* def */
+
+  "tLIDENT",          /* Identifiers starting with lower case */
+  "tUIDENT",          /* Identifiers starting with upper case */
+  "tULIDENT",         /* Identifiers starting with `_` */
+  "tGIDENT",          /* Identifiers starting with `$` */
+  "tAIDENT",          /* Identifiers starting with `@` */
+  "tA2IDENT",         /* Identifiers starting with `@@` */
+  "tBANGIDENT",
+  "tEQIDENT",
+  "tQIDENT",          /* Quoted identifier */
+
+  "tCOMMENT",
+  "tLINECOMMENT",
+
+  "tDQSTRING",        /* Double quoted string */
+  "tSQSTRING",        /* Single quoted string */
+  "tINTEGER",         /* Integer */
+  "tSYMBOL",          /* Symbol */
+  "tANNOTATION",      /* Annotation */
+};
+
 token NullToken = { NullType };
 position NullPosition = { -1 };
-range NULL_RANGE = { -1 };
+range NULL_RANGE = { { -1 }, { -1 } };
+
+const char *token_type_str(enum TokenType type) {
+  return RBS_TOKENTYPE_NAMES[type];
+}
 
 unsigned int peekn(lexstate *state, unsigned int chars[], size_t length) {
   int byteoffset = 0;

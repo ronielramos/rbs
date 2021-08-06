@@ -60,7 +60,14 @@ static void __attribute__((noreturn)) raise_syntax_error() {
 }
 
 static void __attribute__((noreturn)) raise_syntax_error_e(parserstate *state, token tok, char *expected) {
-  rb_raise(rb_eRuntimeError, "Syntax error at line %d char %d, expected %s, but got %s", tok.range.start.line, tok.range.start.column, expected, RBS_TOKENTYPE_NAMES[tok.type]);
+  rb_raise(
+    rb_eRuntimeError,
+    "Syntax error at line %d char %d, expected %s, but got %s",
+    tok.range.start.line,
+    tok.range.start.column,
+    expected,
+    token_type_str(tok.type)
+  );
 }
 
 VALUE parse_type_name(parserstate *state) {
@@ -817,7 +824,11 @@ static VALUE parse_simple(parserstate *state) {
     return parse_proc_type(state);
   }
   default:
-    rb_raise(rb_eRuntimeError, "Parse error in parse_simple: %s", RBS_TOKENTYPE_NAMES[state->current_token.type]);
+    rb_raise(
+      rb_eRuntimeError,
+      "Parse error in parse_simple: %s",
+      token_type_str(state->current_token.type)
+    );
   }
 }
 

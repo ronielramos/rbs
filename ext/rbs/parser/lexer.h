@@ -106,11 +106,12 @@ char *peek_token(lexstate *state, token tok);
 int token_chars(token tok);
 int token_bytes(token tok);
 
-extern const char *RBS_TOKENTYPE_NAMES[];
-
 #define null_position_p(pos) (pos.byte_pos == -1)
 #define nonnull_pos_or(pos1, pos2) (null_position_p(pos1) ? pos2 : pos1)
-
 #define RANGE_BYTES(range) (range.end.byte_pos - range.start.byte_pos)
+
+const char *token_type_str(enum TokenType type);
+
+void print_token(token tok);
 
 #endif

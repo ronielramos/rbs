@@ -169,4 +169,6 @@ VALUE rbs_ast_members_attribute(VALUE klass, VALUE name, VALUE type, VALUE ivar_
 VALUE rbs_ast_members_visibility(VALUE klass, VALUE location);
 VALUE rbs_ast_members_alias(VALUE new_name, VALUE old_name, VALUE kind, VALUE annotations, VALUE location, VALUE comment);
 
+void pp(VALUE object);
+
 #endif

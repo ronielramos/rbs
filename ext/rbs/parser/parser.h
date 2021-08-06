@@ -33,9 +33,6 @@ VALUE parse_type(parserstate *state);
 VALUE parse_method_type(parserstate *state);
 VALUE parse_signature(parserstate *state);
 
-void pp(VALUE object);
-
-
 void rbs_unescape_string(VALUE string);
 
 id_table *parser_push_table(parserstate *state);
@@ -46,7 +43,6 @@ void parser_pop_table(parserstate *state);
 void print_parser(parserstate *state);
 void parser_advance(parserstate *state);
 void parser_advance_assert(parserstate *state, enum TokenType type);
-void print_token(token tok);
 
 void insert_comment_line(parserstate *state, token token);
 VALUE get_comment(parserstate *state, int subject_line);
