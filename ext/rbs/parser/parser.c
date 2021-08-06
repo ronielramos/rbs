@@ -29,13 +29,6 @@ typedef struct {
   VALUE rest_keywords;
 } method_params;
 
-#define INTERN_TOKEN(parserstate, tok) \
-  rb_intern3(\
-    peek_token(parserstate->lexstate, tok),\
-    token_bytes(tok),\
-    rb_enc_get(parserstate->lexstate->string)\
-  )
-
 static VALUE parse_optional(parserstate *state);
 static VALUE parse_simple(parserstate *state);
 
@@ -70,6 +63,11 @@ static void __attribute__((noreturn)) raise_syntax_error_e(parserstate *state, t
   );
 }
 
+/*
+  type_name ::= {`::`} (tUIDENT `::`)* <tXIDENT>
+              | {(tUIDENT `::`)*} <tXIDENT>
+              | {<tXIDENT>}
+*/
 VALUE parse_type_name(parserstate *state) {
   VALUE absolute = Qfalse;
   VALUE path = rb_ary_new();
@@ -103,6 +101,11 @@ VALUE parse_type_name(parserstate *state) {
   }
 }
 
+/*
+  type_name ::= {`::`} (tUIDENT `::`)* <tUIDENT>
+              | {(tUIDENT `::`)*} <tUIDENT>
+              | {<tUIDENT>}
+*/
 VALUE parse_const_name(parserstate *state) {
   VALUE absolute = Qfalse;
   VALUE path = rb_ary_new();
@@ -135,18 +138,7 @@ VALUE parse_const_name(parserstate *state) {
 }
 
 /*
-  ... name ...
-          >
-          >
-
-  ... NAME `::` name ...
-          >
-                    >
-
-  ... `::` NAME `::` name ...
-          >
-                         >
-
+  type_name ::= {::`?} (tUIDENT `::`)* <tLIDENT>
 */
 VALUE parse_alias_name(parserstate *state) {
   VALUE absolute = Qfalse;
@@ -187,15 +179,7 @@ VALUE parse_alias_name(parserstate *state) {
 
 
 /*
-  ... `::` interface name ...
-      ^^^^                           current (start)
-                     ^^^^            current (end)
-
-  ... UIDENT `::` UIDENT `::` lident ...
-      ^^^^^^                                   current (start)
-                              ^^^^^^           current (end)
-
-
+  type_name ::= {`::`?} (tUIDENT `::`)* <tULIDENT>
 */
 VALUE parse_interface_name(parserstate *state) {
   VALUE absolute = Qfalse;
@@ -234,16 +218,19 @@ VALUE parse_interface_name(parserstate *state) {
   }
 }
 
+/*
+  type_list ::= {}<> eol
+              | {} type `,` ... <`,`> eol
+              | {} type `,` ... `,` <type> eol
+*/
 static VALUE parse_type_list(parserstate *state, enum TokenType eol, VALUE types) {
-  while (true) {
-    if (state->next_token.type == eol) {
-      break;
-    }
-
+  while (state->next_token.type != eol) {
     rb_ary_push(types, parse_type(state));
 
     if (state->next_token.type == pCOMMA) {
       parser_advance(state);
+    } else {
+      break;
     }
   }
 
@@ -266,17 +253,10 @@ static bool is_keyword_token(enum TokenType type) {
   }
 }
 
-/**
- * ```
- * ... type name , ...
- *    >         >       before type => after name
- * ```
- *
- * ```
- *     ... type ) ...
- *        >    >            before type => after type
- * ```
- * */
+/*
+  function_param ::= {} <type>
+                   | {} type <param>
+*/
 static VALUE parse_function_param(parserstate *state) {
   position start = state->next_token.range.start;
   VALUE type = parse_type(state);
@@ -295,13 +275,10 @@ static VALUE parse_function_param(parserstate *state) {
   }
 }
 
-/**
- * ```
- * ... keyword `:` type name , ...
- *    ^                              start (before keyword token)
- *                            ^      end   (after comma)
- * ```
- * */
+/*
+  required_keyword ::= {} keyword `:` function_param <`,`>
+                     | {} keyword `:` <function_param>
+*/
 static void parse_required_keyword(parserstate *state, method_params *params) {
   parser_advance(state);
   VALUE keyword = ID2SYM(INTERN_TOKEN(state, state->current_token));
@@ -316,11 +293,10 @@ static void parse_required_keyword(parserstate *state, method_params *params) {
   return;
 }
 
-/**
- * ... `?` keyword `:` type name , ...
- *        ^                              start (before keyword token)
- *                                ^      end   (after comma)
- * */
+/*
+  optional_keyword ::= {`?`} keyword `:` function_param <`,`>
+                     | {`?`} keyword `:` <function_param>
+*/
 static void parse_optional_keyword(parserstate *state, method_params *params) {
   parser_advance(state);
   VALUE keyword = ID2SYM(INTERN_TOKEN(state, state->current_token));
@@ -335,16 +311,12 @@ static void parse_optional_keyword(parserstate *state, method_params *params) {
   return;
 }
 
-/**
- *   ... keyword `:` param, ... `)`
- *      >                      >
- *   ... `?` keyword `:` param, ... `)`
- *      >                          >
- *   ... `**` type param `)`
- *      >               >
- *   ...  `)`
- *      >>
- * */
+/*
+  keywords ::= {} `)`
+             | {} `?` optional_keyword <keywords>
+             | {} `**` function_param <keywords>
+             | {} required_keyword <keywords>
+*/
 static void parse_keywords(parserstate *state, method_params *params) {
   while (true) {
     switch (state->next_token.type) {
@@ -364,11 +336,14 @@ static void parse_keywords(parserstate *state, method_params *params) {
   }
 }
 
-/**
- * ... type name, ...
- *    >          >
- *
- * */
+/*
+  trailing_params ::= {<>} `)`
+                    | {} `?` optional_keyword <keywords>
+                    | {} <keywords>
+                    | {} function_param `,` <trailing_params>
+                    | {} function_param <trailing_params>         (FIXME)
+
+*/
 static void parse_trailing_params(parserstate *state, method_params *params) {
   while (true) {
     if (state->next_token.type == pRPAREN) {
@@ -408,6 +383,14 @@ static void parse_trailing_params(parserstate *state, method_params *params) {
  *    >               >
  *
  * */
+/*
+  optional_params ::= {<>} `)`
+                    | {} `*` <function_param> `)`
+                    | {} `*` function_param `,` <trailing_params>
+                    | {} `?` function_param `,` <optional_params>
+                    | {} `?` function_param <optional_params>      (FIXME)
+                    | {} <keywords>
+*/
 static void parse_optional_params(parserstate *state, method_params *params) {
   while (true) {
     if (state->next_token.type == pRPAREN) {
@@ -451,14 +434,15 @@ static void parse_optional_params(parserstate *state, method_params *params) {
   }
 }
 
-/**
- *
- * ... type name, type , ...
- *    >          >      >
- *
- *
- *
- * */
+/*
+  required_params ::= {<>} `)`
+                    | {} `*` <function_param> `)`
+                    | {} `*` function_params `,` <trailing_params>
+                    | {} `**` <keywords>
+                    | {} `?` <optional_params>
+                    | {} function_param `,` <required_params>
+                    | {} function_param <required_params>      (FIXME)
+*/
 static void parse_required_params(parserstate *state, method_params *params) {
   while (true) {
     if (state->next_token.type == pRPAREN) {
@@ -497,13 +481,16 @@ static void parse_required_params(parserstate *state, method_params *params) {
   }
 }
 
+/*
+  params ::= {} <required_params>
+*/
 static void parse_params(parserstate *state, method_params *params) {
   parse_required_params(state, params);
 }
 
 /*
-    simple_type
-  | simple_type '?'
+  optinal ::= {} <simple_type>
+            | {} simple_type <`?`>
 */
 static VALUE parse_optional(parserstate *state) {
   VALUE type = parse_simple(state);
@@ -526,12 +513,13 @@ static void initialize_method_params(method_params *params){
   params->rest_keywords = Qnil;
 }
 
-/**
- * ... `(` params `)` `->` Type ...
- *  ^^^                                 start
- *                         ^^^^         end
- *
- * */
+/*
+  function ::= {} `(` params `)` `{` `(` params `)` `->` optional `}` `->` <optional>
+             | {} `(` params `)` `->` <optional>
+             | {} `{` `(` params `)` `->` optional `}` `->` <optional>
+             | {} `{` `->` optional `}` `->` <optional>
+             | {} `->` <optional>
+*/
 static void parse_function(parserstate *state, VALUE *function, VALUE *block) {
   method_params params;
   initialize_method_params(&params);
@@ -595,11 +583,9 @@ static void parse_function(parserstate *state, VALUE *function, VALUE *block) {
   );
 }
 
-/**
- *  ... `^` `(` ... type ...
- *         ^                    start
- *                      ^       end
- * */
+/*
+  proc_type ::= {`^`} <function>
+*/
 static VALUE parse_proc_type(parserstate *state) {
   position start = state->current_token.range.start;
   VALUE function = Qnil;
@@ -615,6 +601,12 @@ static VALUE parse_proc_type(parserstate *state) {
  * ... `{` ... `}` ...
  *        >   >
  * */
+/*
+  record_attributes ::= {`{`} record_attribute... <record_attribute> `}`
+
+  record_attribute ::= {} keyword_token `:` <type>
+                     | {} literal_type `=>` <type>
+*/
 VALUE parse_record_attributes(parserstate *state) {
   VALUE hash = rb_hash_new();
 
@@ -663,6 +655,9 @@ VALUE parse_record_attributes(parserstate *state) {
   return hash;
 }
 
+/*
+  symbol ::= {<tSYMBOL>}
+*/
 static VALUE parse_symbol(parserstate *state) {
   VALUE string = state->lexstate->string;
   rb_encoding *enc = rb_enc_get(string);
@@ -701,6 +696,16 @@ static VALUE parse_symbol(parserstate *state) {
   );
 }
 
+/*
+  simple ::= {} `(`) type <`)`>
+           | {} <base type>
+           | {} <type_name>
+           | {} class_instance `[` type_list <`]`>
+           | {} `singleton` `(` type_name <`)`>
+           | {} `[` type_list <`]`>
+           | {} `{` record_attributes <`}`>
+           | {} `^` <function>
+*/
 static VALUE parse_simple(parserstate *state) {
   parser_advance(state);
 
@@ -835,8 +840,8 @@ static VALUE parse_simple(parserstate *state) {
 }
 
 /*
-    optional
-  | optional '&' ... '&' optional
+  intersection ::= {} optional `&` ... '&' <optional>
+                 | {} <optional>
 */
 static VALUE parse_intersection(parserstate *state) {
   VALUE type = parse_optional(state);
@@ -856,8 +861,8 @@ static VALUE parse_intersection(parserstate *state) {
 }
 
 /*
-    intersection
-  | intersection '|' ... '|' intersection
+  union ::= {} intersection '|' ... '|' <intersection>
+          | {} <intersection>
 */
 VALUE parse_type(parserstate *state) {
   VALUE type = parse_intersection(state);
@@ -877,9 +882,8 @@ VALUE parse_type(parserstate *state) {
 }
 
 /*
-   ... tok `[` vars `]` function ...
-       ^^^                                current(start)
-                              ^^^         current(end)
+  method_type ::= {} `[` type_vars `]` <function>
+                | {} <function>
 */
 VALUE parse_method_type(parserstate *state) {
   VALUE function = Qnil;
@@ -928,6 +932,9 @@ VALUE parse_method_type(parserstate *state) {
   );
 }
 
+/*
+  global_decl ::= {tGIDENT} `:` <type>
+*/
 VALUE parse_global_decl(parserstate *state) {
   position start = state->current_token.range.start;
   VALUE typename = ID2SYM(INTERN_TOKEN(state, state->current_token));
@@ -945,13 +952,9 @@ VALUE parse_global_decl(parserstate *state) {
   );
 }
 
-/**
- *
- * ... tUIDENT ... `:` TYPE ...
- *            >
- *                         >
- *
- * */
+/*
+  const_decl ::= {const_name} `:` <type>
+*/
 VALUE parse_const_decl(parserstate *state) {
   position start = state->current_token.range.start;
   VALUE typename = parse_const_name(state);
@@ -969,6 +972,9 @@ VALUE parse_const_decl(parserstate *state) {
   );
 }
 
+/*
+  type_decl ::= {kTYPE} alias_name `=` <type>
+*/
 VALUE parse_type_decl(parserstate *state, position comment_pos, VALUE annotations) {
   position start = state->current_token.range.start;
   comment_pos = nonnull_pos_or(comment_pos, start);
@@ -990,6 +996,9 @@ VALUE parse_type_decl(parserstate *state, position comment_pos, VALUE annotation
   );
 }
 
+/*
+  annotation ::= {<tANNOTATION>}
+*/
 VALUE parse_annotation(parserstate *state) {
   VALUE content = rb_funcall(state->buffer, rb_intern("content"), 0);
   rb_encoding *enc = rb_enc_get(content);
@@ -1004,11 +1013,10 @@ VALUE parse_annotation(parserstate *state) {
 }
 
 /*
+  module_type_params ::= {} `[` module_type_param `,` ... <`]`>
+                       | {<>}
 
-  ... tok `[` params `]` ...
-      ^^^                     current (start)
-                     ^^^      current (end)
-
+  module_type_param ::= kUNCHECKED? (kIN|kOUT|) tUIDENT
 */
 VALUE parse_module_type_params(parserstate *state) {
   VALUE params = rbs_ast_decl_module_type_params();
@@ -1073,9 +1081,8 @@ VALUE parse_module_type_params(parserstate *state) {
 }
 
 /*
-  ... tok %a{abc def} %a(xyzzy) tok ...
-      ^^^                                current (start)
-                      ^^^^^^^^^          current (end)
+  annotations ::= {} annotation ... <annotation>
+                | {<>}
 */
 void parse_annotations(parserstate *state, VALUE annotations, position *annot_pos) {
   *annot_pos = NullPosition;
@@ -1096,21 +1103,8 @@ void parse_annotations(parserstate *state, VALUE annotations, position *annot_po
 }
 
 /*
-  ... tok ident `?`
-      ^^^
-                ^^^
-
-  ... tok ident
-      ^^^
-          ^^^^^
-
-  ... tok kDEF
-      ^^^
-          ^^^^
-
-  ... tok opr
-      ^^^
-          ^^^
+  method_name ::= {} <IDENT | keyword>
+                | {} (IDENT | keyword)~<`?`>
 */
 VALUE parse_method_name(parserstate *state, range *range) {
   parser_advance(state);
@@ -1160,16 +1154,9 @@ typedef enum {
 } InstanceSingletonKind;
 
 /*
-  ... tok `self` `.` ...
-      ^^^
-                 ^^^
-
-  ... tok ...
-      ^^^
-
-  ... tok `self` `?` `.` ...
-      ^^^
-                     ^^^
+  instance_singleton_kind ::= {<>}
+                            | {} kSELF <`.`>
+                            | {} kSELF~`?` <`.`>
 */
 InstanceSingletonKind parse_instance_singleton_kind(parserstate *state) {
   InstanceSingletonKind kind = INSTANCE_KIND;
@@ -1196,9 +1183,11 @@ InstanceSingletonKind parse_instance_singleton_kind(parserstate *state) {
 }
 
 /*
-  ... `def` name `:` method_type ...
-      ^^^^^                            current (start)
-                             ^^^       current (end)
+  def_member ::= {kDEF} method_name `:` <method_types>
+
+  method_types ::= {} <method_type>
+                 | {} <`...`>
+                 | {} method_type `|` <method_types>
 */
 VALUE parse_member_def(parserstate *state, position comment_pos, VALUE annotations) {
   position start = state->current_token.range.start;
@@ -1271,6 +1260,11 @@ VALUE parse_member_def(parserstate *state, position comment_pos, VALUE annotatio
   );
 }
 
+/*
+  interface_members ::= {} ...<interface_member> kEND
+
+  interface_member ::= def_member
+*/
 VALUE parse_interface_members(parserstate *state) {
   VALUE members = rb_ary_new();
 
@@ -1303,9 +1297,7 @@ VALUE parse_interface_members(parserstate *state) {
 }
 
 /*
-  ... `interface` interface_name ... `end` ...
-      ^^^^^^^^^^^                                current (start)
-                                     ^^^^^       current (end)
+  interface_decl ::= {`interface`} interface_name module_type_params interface_members <kEND>
 */
 VALUE parse_interface_decl(parserstate *state, position comment_pos, VALUE annotations) {
   position start = state->current_token.range.start;

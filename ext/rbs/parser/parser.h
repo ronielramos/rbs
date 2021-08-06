@@ -47,4 +47,11 @@ void parser_advance_assert(parserstate *state, enum TokenType type);
 void insert_comment_line(parserstate *state, token token);
 VALUE get_comment(parserstate *state, int subject_line);
 
+#define INTERN_TOKEN(parserstate, tok) \
+  rb_intern3(\
+    peek_token(parserstate->lexstate, tok),\
+    token_bytes(tok),\
+    rb_enc_get(parserstate->lexstate->string)\
+  )
+
 #endif
