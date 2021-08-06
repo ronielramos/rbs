@@ -1162,15 +1162,17 @@ VALUE parse_member_def(parserstate *state, bool instance_only, position comment_
   );
 }
 
-/*
-  class_instance_name ::= {} <class_name>
-                        | {} class_name `[` type args <`]`>
-*/
-void class_instance_name(parserstate *state, VALUE *name, VALUE args, range *name_range, range *args_range) {
+/**
+ * class_instance_name ::= {} <class_name>
+ *                       | {} class_name `[` type args <`]`>
+ *
+ * @param kind
+ * */
+void class_instance_name(parserstate *state, TypeNameKind kind, VALUE *name, VALUE args, range *name_range, range *args_range) {
   parser_advance(state);
 
   *name_range = state->current_token.range;
-  *name = parse_type_name(state, CLASS_NAME);
+  *name = parse_type_name(state, kind);
 
   if (state->next_token.type == pLBRACKET) {
     parser_advance(state);
@@ -1183,12 +1185,14 @@ void class_instance_name(parserstate *state, VALUE *name, VALUE args, range *nam
   }
 }
 
-/*
-  mixin_member ::= {kINCLUDE} <class_instance_name>
-                 | {kPREPEND} <class_instance_name>
-                 | {kEXTEND} <class_instance_name>
-*/
-VALUE parse_mixin_member(parserstate *state, position comment_pos, VALUE annotations) {
+/**
+ *  mixin_member ::= {kINCLUDE} <class_instance_name>
+ *                 | {kPREPEND} <class_instance_name>
+ *                 | {kEXTEND} <class_instance_name>
+ *
+ * @param from_interface `true` when the member is in an interface.
+ * */
+VALUE parse_mixin_member(parserstate *state, bool from_interface, position comment_pos, VALUE annotations) {
   position start = state->current_token.range.start;
   comment_pos = nonnull_pos_or(comment_pos, start);
 
@@ -1208,11 +1212,24 @@ VALUE parse_mixin_member(parserstate *state, position comment_pos, VALUE annotat
     rb_raise(rb_eRuntimeError, "Unexpected");
   }
 
+  if (from_interface) {
+    if (state->current_token.type != kINCLUDE) {
+      raise_syntax_error_e(
+        state,
+        state->current_token,
+        "include"
+      );
+    }
+  }
+
   VALUE name;
   VALUE args = rb_ary_new();
   range name_range;
   range args_range;
-  class_instance_name(state, &name, args, &name_range, &args_range);
+  class_instance_name(
+    state,
+    from_interface ? INTERFACE_NAME : (INTERFACE_NAME | CLASS_NAME),
+    &name, args, &name_range, &args_range);
 
   VALUE location = rbs_location_pp(state->buffer, &start, &state->current_token.range.end);
 
@@ -1251,7 +1268,7 @@ VALUE parse_interface_members(parserstate *state) {
     case kINCLUDE:
     case kEXTEND:
     case kPREPEND:
-      member = parse_mixin_member(state, annot_pos, annotations);
+      member = parse_mixin_member(state, true, annot_pos, annotations);
       break;
 
     default:
