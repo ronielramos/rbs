@@ -8,12 +8,22 @@ class RBS::ParserTest < Test::Unit::TestCase
   def test_interface
     RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
 interface _Foo[unchecked in A]
+  def bar: [A] () -> A
+
   def foo: () -> A
          | { () -> void } -> void
 end
     RBS
       decls[0].tap do |decl|
-        pp decl
+        decl.members[0].tap do |member|
+          assert_equal :bar, member.name
+          assert_instance_of RBS::Types::Variable, member.types[0].type.return_type
+        end
+
+        decl.members[1].tap do |member|
+          assert_equal :foo, member.name
+          assert_instance_of RBS::Types::Variable, member.types[0].type.return_type
+        end
       end
     end
   end

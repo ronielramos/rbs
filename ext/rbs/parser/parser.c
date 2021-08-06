@@ -956,7 +956,10 @@ VALUE parse_module_type_params(parserstate *state) {
         start = state->current_token.range.start;
       }
 
-      name = ID2SYM(INTERN_TOKEN(state, state->current_token));
+      ID id = INTERN_TOKEN(state, state->current_token);
+      name = ID2SYM(id);
+
+      parser_insert_id(state, id);
 
       VALUE loc = rbs_location_pp(state->buffer, &start, &state->current_token.range.end);
       VALUE param = rbs_ast_decl_module_type_params_param(name, variance, unchecked, loc);
@@ -1115,6 +1118,7 @@ VALUE parse_member_def(parserstate *state, bool instance_only, bool accept_overl
     case pLPAREN:
     case pARROW:
     case pLBRACE:
+    case pLBRACKET:
       rb_ary_push(method_types, parse_method_type(state));
       break;
 
@@ -1356,6 +1360,7 @@ VALUE parse_interface_decl(parserstate *state, position comment_pos, VALUE annot
   position start = state->current_token.range.start;
   comment_pos = nonnull_pos_or(comment_pos, start);
 
+  parser_push_table(state);
   parser_advance(state);
 
   VALUE name = parse_type_name(state, INTERFACE_NAME);
@@ -1365,6 +1370,7 @@ VALUE parse_interface_decl(parserstate *state, position comment_pos, VALUE annot
   parser_advance_assert(state, kEND);
 
   position end = state->current_token.range.end;
+  parser_pop_table(state);
 
   return rbs_ast_decl_interface(
     name,
