@@ -1079,14 +1079,17 @@ InstanceSingletonKind parse_instance_singleton_kind(parserstate *state) {
   return kind;
 }
 
-/*
-  def_member ::= {kDEF} method_name `:` <method_types>
-
-  method_types ::= {} <method_type>
-                 | {} <`...`>
-                 | {} method_type `|` <method_types>
-*/
-VALUE parse_member_def(parserstate *state, bool instance_only, position comment_pos, VALUE annotations) {
+/**
+ * def_member ::= {kDEF} method_name `:` <method_types>
+ *
+ * method_types ::= {} <method_type>
+ *                | {} <`...`>
+ *                | {} method_type `|` <method_types>
+ *
+ * @param instance_only `true` to reject singleton method definition.
+ * @param accept_overload `true` to accept overloading (...) definition.
+ * */
+VALUE parse_member_def(parserstate *state, bool instance_only, bool accept_overload, position comment_pos, VALUE annotations) {
   position start = state->current_token.range.start;
   comment_pos = nonnull_pos_or(comment_pos, start);
 
@@ -1116,10 +1119,18 @@ VALUE parse_member_def(parserstate *state, bool instance_only, position comment_
       break;
 
     case pDOT3:
-      overload = Qtrue;
-      parser_advance(state);
-      loop = false;
-      break;
+      if (accept_overload) {
+        overload = Qtrue;
+        parser_advance(state);
+        loop = false;
+        break;
+      } else {
+        raise_syntax_error_e(
+          state,
+          state->next_token,
+          "method definition without `...`"
+        );
+      }
 
     default:
       raise_syntax_error_e(
@@ -1262,7 +1273,7 @@ VALUE parse_interface_members(parserstate *state) {
     VALUE member;
     switch (state->current_token.type) {
     case kDEF:
-      member = parse_member_def(state, true, annot_pos, annotations);
+      member = parse_member_def(state, true, true, annot_pos, annotations);
       break;
 
     case kINCLUDE:
