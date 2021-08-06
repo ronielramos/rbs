@@ -1,4 +1,9 @@
+#ifndef RBS__RUBY_OBJS_H
+#define RBS__RUBY_OBJS_H
+
 #include "ruby.h"
+#include "lexer.h"
+#include "parser.h"
 
 extern VALUE rbsparser_Keywords;
 
@@ -163,3 +168,5 @@ VALUE rbs_ast_members_mixin(VALUE klass, VALUE name, VALUE args, VALUE annotatio
 VALUE rbs_ast_members_attribute(VALUE klass, VALUE name, VALUE type, VALUE ivar_name, VALUE kind, VALUE annotations, VALUE location, VALUE comment);
 VALUE rbs_ast_members_visibility(VALUE klass, VALUE location);
 VALUE rbs_ast_members_alias(VALUE new_name, VALUE old_name, VALUE kind, VALUE annotations, VALUE location, VALUE comment);
+
+#endif

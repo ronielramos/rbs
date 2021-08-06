@@ -1,4 +1,4 @@
-#include "parser.h"
+#include "rbs_parser.h"
 
 id_table *parser_push_table(parserstate *state) {
   id_table *table;

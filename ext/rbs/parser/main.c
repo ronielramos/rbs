@@ -1,4 +1,4 @@
-#include "parser.h"
+#include "rbs_parser.h"
 
 const char *RBS_TOKENTYPE_NAMES[] = {
   "NullType",

@@ -1,4 +1,4 @@
-#include "parser.h"
+#include "rbs_parser.h"
 
 VALUE rbs_base_type(VALUE klass, VALUE location) {
   VALUE args = rb_hash_new();

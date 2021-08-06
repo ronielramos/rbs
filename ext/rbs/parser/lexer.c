@@ -1,4 +1,4 @@
-#include "parser.h"
+#include "rbs_parser.h"
 
 #define ONE_CHAR_PATTERN(c, t) case c: tok = next_token(state, t, start); break
 
@@ -12,6 +12,7 @@
 
 token NullToken = { NullType };
 position NullPosition = { -1 };
+range NULL_RANGE = { -1 };
 
 unsigned int peekn(lexstate *state, unsigned int chars[], size_t length) {
   int byteoffset = 0;

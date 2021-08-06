@@ -1,4 +1,4 @@
-#include "parser.h"
+#include "rbs_parser.h"
 #include "ruby/internal/symbol.h"
 
 #define KEYWORD_CASES case kBOOL:\
