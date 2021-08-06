@@ -55,6 +55,7 @@ enum TokenType {
   kINCLUDE,         /* include */
   kEXTEND,          /* extend */
   kPREPEND,         /* prepend */
+  kALIAS,           /* alias */
 
   tLIDENT,          /* Identifiers starting with lower case */
   tUIDENT,          /* Identifiers starting with upper case */

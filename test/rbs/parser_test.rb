@@ -45,4 +45,22 @@ end
       end
     end
   end
+
+  def test_interface_alias
+    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+interface _Foo[unchecked in A]
+  alias hello world
+end
+    RBS
+      decls[0].tap do |decl|
+        decl.members[0].tap do |member|
+          assert_instance_of RBS::AST::Members::Alias, member
+          assert_equal :instance, member.kind
+          assert_equal :hello, member.new_name
+          assert_equal :world, member.old_name
+          assert_equal "alias hello world", member.location.source
+        end
+      end
+    end
+  end
 end

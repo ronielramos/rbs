@@ -1262,16 +1262,45 @@ VALUE parse_mixin_member(parserstate *state, bool from_interface, position comme
  *
  * @param[in] instance_only `true` to reject `self.` alias.
  * */
-VALUE parse_alias_member(parserstate *state, instance_only bool, position comment_pos, VALUE annotations) {
+VALUE parse_alias_member(parserstate *state, bool instance_only, position comment_pos, VALUE annotations) {
   position start = state->current_token.range.start;
   comment_pos = nonnull_pos_or(comment_pos, start);
   VALUE comment = get_comment(state, comment_pos.line);
 
-  if (!instance_only && state->next_token.type == kSELF) {
-    🐈
-  } else {
+  range new_name_range;
+  VALUE new_name;
+  range old_name_range;
+  VALUE old_name;
+  VALUE location;
+  VALUE kind;
 
+  if (!instance_only && state->next_token.type == kSELF) {
+    kind = ID2SYM(rb_intern("singleton"));
+
+    parser_advance_assert(state, kSELF);
+    parser_advance_assert(state, pDOT);
+    new_name = parse_method_name(state, &new_name_range);
+
+    parser_advance_assert(state, kSELF);
+    parser_advance_assert(state, pDOT);
+    old_name = parse_method_name(state, &old_name_range);
+
+    location = rbs_location_pp(state->buffer, &start, &state->current_token.range.end);
+  } else {
+    kind = ID2SYM(rb_intern("instance"));
+    new_name = parse_method_name(state, &new_name_range);
+    old_name = parse_method_name(state, &old_name_range);
+    location = rbs_location_pp(state->buffer, &start, &old_name_range.end);
   }
+
+  return rbs_ast_members_alias(
+    new_name,
+    old_name,
+    kind,
+    annotations,
+    location,
+    comment
+  );
 }
 
 /*
@@ -1300,6 +1329,10 @@ VALUE parse_interface_members(parserstate *state) {
     case kEXTEND:
     case kPREPEND:
       member = parse_mixin_member(state, true, annot_pos, annotations);
+      break;
+
+    case kALIAS:
+      member = parse_alias_member(state, true, annot_pos, annotations);
       break;
 
     default:
