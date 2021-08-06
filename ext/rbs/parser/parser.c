@@ -1086,13 +1086,18 @@ InstanceSingletonKind parse_instance_singleton_kind(parserstate *state) {
                  | {} <`...`>
                  | {} method_type `|` <method_types>
 */
-VALUE parse_member_def(parserstate *state, position comment_pos, VALUE annotations) {
+VALUE parse_member_def(parserstate *state, bool instance_only, position comment_pos, VALUE annotations) {
   position start = state->current_token.range.start;
   comment_pos = nonnull_pos_or(comment_pos, start);
 
   VALUE comment = get_comment(state, comment_pos.line);
 
-  InstanceSingletonKind kind = parse_instance_singleton_kind(state);
+  InstanceSingletonKind kind;
+  if (instance_only) {
+    kind = INSTANCE_KIND;
+  } else {
+    kind = parse_instance_singleton_kind(state);
+  }
 
   range name_range;
   VALUE name = parse_method_name(state, &name_range);
@@ -1240,7 +1245,7 @@ VALUE parse_interface_members(parserstate *state) {
     VALUE member;
     switch (state->current_token.type) {
     case kDEF:
-      member = parse_member_def(state, annot_pos, annotations);
+      member = parse_member_def(state, true, annot_pos, annotations);
       break;
 
     case kINCLUDE:
