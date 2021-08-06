@@ -1254,6 +1254,26 @@ VALUE parse_mixin_member(parserstate *state, bool from_interface, position comme
   );
 }
 
+/**
+ * @code
+ * alias_member ::= {kALIAS} method_name <method_name>
+ *                | {kALIAS} kSELF `.` method_name kSELF `.` <method_name>
+ * @endcode
+ *
+ * @param[in] instance_only `true` to reject `self.` alias.
+ * */
+VALUE parse_alias_member(parserstate *state, instance_only bool, position comment_pos, VALUE annotations) {
+  position start = state->current_token.range.start;
+  comment_pos = nonnull_pos_or(comment_pos, start);
+  VALUE comment = get_comment(state, comment_pos.line);
+
+  if (!instance_only && state->next_token.type == kSELF) {
+    🐈
+  } else {
+
+  }
+}
+
 /*
   interface_members ::= {} ...<interface_member> kEND
 
