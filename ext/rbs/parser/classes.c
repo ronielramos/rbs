@@ -475,7 +475,7 @@ VALUE rbs_ast_members_variable(VALUE klass, VALUE name, VALUE type, VALUE locati
 VALUE rbs_ast_members_mixin(VALUE klass, VALUE name, VALUE module_args, VALUE annotations, VALUE location, VALUE comment) {
   VALUE args = rb_hash_new();
   rb_hash_aset(args, ID2SYM(rb_intern("name")), name);
-  rb_hash_aset(args, ID2SYM(rb_intern("type")), module_args);
+  rb_hash_aset(args, ID2SYM(rb_intern("args")), module_args);
   rb_hash_aset(args, ID2SYM(rb_intern("annotations")), annotations);
   rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
   rb_hash_aset(args, ID2SYM(rb_intern("comment")), comment);

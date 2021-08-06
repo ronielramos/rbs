@@ -219,6 +219,9 @@ Init_parser(void)
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("out"), INT2FIX(kOUT));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("end"), INT2FIX(kEND));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("def"), INT2FIX(kDEF));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("include"), INT2FIX(kINCLUDE));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("extend"), INT2FIX(kEXTEND));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("prepend"), INT2FIX(kPREPEND));
 
   rb_define_const(RBSParser, "KEYWORDS", rbsparser_Keywords);
 

@@ -48,10 +48,6 @@ static VALUE string_of_bytepos(parserstate *state, int byte_start, int byte_end)
   );
 }
 
-static void __attribute__((noreturn)) raise_syntax_error() {
-  rb_raise(rb_eRuntimeError, "Syntax error");
-}
-
 static void __attribute__((noreturn)) raise_syntax_error_e(parserstate *state, token tok, const char *expected) {
   rb_raise(
     rb_eRuntimeError,
@@ -63,12 +59,18 @@ static void __attribute__((noreturn)) raise_syntax_error_e(parserstate *state, t
   );
 }
 
+typedef enum {
+  CLASS_NAME = 1,
+  INTERFACE_NAME = 2,
+  ALIAS_NAME = 4
+} TypeNameKind;
+
 /*
   type_name ::= {`::`} (tUIDENT `::`)* <tXIDENT>
               | {(tUIDENT `::`)*} <tXIDENT>
               | {<tXIDENT>}
 */
-VALUE parse_type_name(parserstate *state) {
+VALUE parse_type_name(parserstate *state, TypeNameKind kind) {
   VALUE absolute = Qfalse;
   VALUE path = rb_ary_new();
   VALUE namespace;
@@ -89,133 +91,34 @@ VALUE parse_type_name(parserstate *state) {
   }
   namespace = rbs_namespace(path, absolute);
 
-  switch (state->current_token.type)
-  {
-  case tLIDENT:
-  case tULIDENT:
-  case tUIDENT:
-    return rbs_type_name(namespace, ID2SYM(INTERN_TOKEN(state, state->current_token)));
-    break;
-  default:
-    raise_syntax_error();
-  }
-}
+  switch (state->current_token.type) {
+    case tLIDENT:
+      if (kind & ALIAS_NAME) break;
+    case tULIDENT:
+      if (kind & INTERFACE_NAME) break;
+    case tUIDENT:
+      if (kind & CLASS_NAME) break;
+    default: {
+      VALUE ids = rb_ary_new();
+      if (kind & ALIAS_NAME) {
+        rb_ary_push(ids, rb_str_new_literal("alias name"));
+      }
+      if (kind & INTERFACE_NAME) {
+        rb_ary_push(ids, rb_str_new_literal("interface name"));
+      }
+      if (kind & CLASS_NAME) {
+        rb_ary_push(ids, rb_str_new_literal("class/module/constant name"));
+      }
 
-/*
-  type_name ::= {`::`} (tUIDENT `::`)* <tUIDENT>
-              | {(tUIDENT `::`)*} <tUIDENT>
-              | {<tUIDENT>}
-*/
-VALUE parse_const_name(parserstate *state) {
-  VALUE absolute = Qfalse;
-  VALUE path = rb_ary_new();
-  VALUE namespace;
-
-  if (state->current_token.type == pCOLON2) {
-    absolute = Qtrue;
-    parser_advance(state);
-  }
-
-  if (state->current_token.type == tUIDENT) {
-    // may be prefix
-    while (state->next_token.type == pCOLON2) {
-      rb_ary_push(path, ID2SYM(INTERN_TOKEN(state, state->current_token)));
-
-      parser_advance(state);
-      parser_advance(state);
+      raise_syntax_error_e(
+        state,
+        state->current_token,
+        RSTRING_PTR(rb_funcall(ids, rb_intern("join"), 0))
+      );
     }
   }
-  namespace = rbs_namespace(path, absolute);
 
-  switch (state->current_token.type)
-  {
-  case tUIDENT:
-    return rbs_type_name(namespace, ID2SYM(INTERN_TOKEN(state, state->current_token)));
-    break;
-  default:
-    raise_syntax_error();
-  }
-}
-
-/*
-  type_name ::= {::`?} (tUIDENT `::`)* <tLIDENT>
-*/
-VALUE parse_alias_name(parserstate *state) {
-  VALUE absolute = Qfalse;
-  VALUE path = rb_ary_new();
-  VALUE namespace;
-
-  if (state->current_token.type == pCOLON2) {
-    absolute = Qtrue;
-    parser_advance(state);
-  }
-
-  if (state->current_token.type == tUIDENT) {
-    // may be prefix
-    while (state->next_token.type == pCOLON2) {
-      rb_ary_push(path, ID2SYM(INTERN_TOKEN(state, state->current_token)));
-
-      parser_advance(state);
-      parser_advance(state);
-    }
-  }
-  namespace = rbs_namespace(path, absolute);
-
-  switch (state->current_token.type)
-  {
-  case tLIDENT:
-    return rbs_type_name(
-      namespace,
-      ID2SYM(INTERN_TOKEN(state, state->current_token))
-    );
-  default:
-    raise_syntax_error_e(
-      state,
-      state->current_token,
-      "type alias name (tLIDENT)"
-    );
-  }
-}
-
-
-/*
-  type_name ::= {`::`?} (tUIDENT `::`)* <tULIDENT>
-*/
-VALUE parse_interface_name(parserstate *state) {
-  VALUE absolute = Qfalse;
-  VALUE path = rb_ary_new();
-  VALUE namespace;
-
-  if (state->current_token.type == pCOLON2) {
-    absolute = Qtrue;
-    parser_advance(state);
-  }
-
-  if (state->current_token.type == tUIDENT) {
-    // may be prefix
-    while (state->next_token.type == pCOLON2) {
-      rb_ary_push(path, ID2SYM(INTERN_TOKEN(state, state->current_token)));
-
-      parser_advance(state);
-      parser_advance(state);
-    }
-  }
-  namespace = rbs_namespace(path, absolute);
-
-  switch (state->current_token.type)
-  {
-  case tULIDENT:
-    return rbs_type_name(
-      namespace,
-      ID2SYM(INTERN_TOKEN(state, state->current_token))
-    );
-  default:
-    raise_syntax_error_e(
-      state,
-      state->current_token,
-      "interface name (tULIDENT)"
-    );
-  }
+  return rbs_type_name(namespace, ID2SYM(INTERN_TOKEN(state, state->current_token)));
 }
 
 /*
@@ -774,7 +677,7 @@ static VALUE parse_simple(parserstate *state) {
   case tULIDENT:
     // fallthrough
   case pCOLON2: {
-    VALUE typename = parse_type_name(state);
+    VALUE typename = parse_type_name(state, INTERFACE_NAME | CLASS_NAME | ALIAS_NAME);
     VALUE types = rb_ary_new();
 
     VALUE kind = rb_ivar_get(typename, rb_intern_const("@kind"));
@@ -798,20 +701,14 @@ static VALUE parse_simple(parserstate *state) {
     }
   }
   case tLIDENT: {
-    VALUE typename = parse_type_name(state);
+    VALUE typename = parse_type_name(state, ALIAS_NAME);
     return rbs_alias(typename);
   }
   case kSINGLETON: {
     parser_advance_assert(state, pLPAREN);
     parser_advance(state);
-    VALUE typename = parse_type_name(state);
+    VALUE typename = parse_type_name(state, CLASS_NAME);
     parser_advance_assert(state, pRPAREN);
-
-    VALUE kind = rb_ivar_get(typename, rb_intern_const("@kind"));
-    if (kind != sym_class) {
-      raise_syntax_error();
-    }
-
     return rbs_class_singleton(typename);
   }
   case pLBRACKET: {
@@ -957,7 +854,7 @@ VALUE parse_global_decl(parserstate *state) {
 */
 VALUE parse_const_decl(parserstate *state) {
   position start = state->current_token.range.start;
-  VALUE typename = parse_const_name(state);
+  VALUE typename = parse_type_name(state, CLASS_NAME);
 
   parser_advance_assert(state, pCOLON);
 
@@ -980,7 +877,7 @@ VALUE parse_type_decl(parserstate *state, position comment_pos, VALUE annotation
   comment_pos = nonnull_pos_or(comment_pos, start);
 
   parser_advance(state);
-  VALUE typename = parse_alias_name(state);
+  VALUE typename = parse_type_name(state, ALIAS_NAME);
 
   parser_advance_assert(state, pEQ);
 
@@ -1261,6 +1158,70 @@ VALUE parse_member_def(parserstate *state, position comment_pos, VALUE annotatio
 }
 
 /*
+  class_instance_name ::= {} <class_name>
+                        | {} class_name `[` type args <`]`>
+*/
+void class_instance_name(parserstate *state, VALUE *name, VALUE args, range *name_range, range *args_range) {
+  parser_advance(state);
+
+  *name_range = state->current_token.range;
+  *name = parse_type_name(state, CLASS_NAME);
+
+  if (state->next_token.type == pLBRACKET) {
+    parser_advance(state);
+    args_range->start = state->current_token.range.start;
+    parse_type_list(state, pRBRACKET, args);
+    parser_advance_assert(state, pRBRACKET);
+    args_range->end = state->current_token.range.end;
+  } else {
+    *args_range = NULL_RANGE;
+  }
+}
+
+/*
+  mixin_member ::= {kINCLUDE} <class_instance_name>
+                 | {kPREPEND} <class_instance_name>
+                 | {kEXTEND} <class_instance_name>
+*/
+VALUE parse_mixin_member(parserstate *state, position comment_pos, VALUE annotations) {
+  position start = state->current_token.range.start;
+  comment_pos = nonnull_pos_or(comment_pos, start);
+
+  VALUE klass = Qnil;
+  switch (state->current_token.type)
+  {
+  case kINCLUDE:
+    klass = RBS_AST_Members_Include;
+    break;
+  case kEXTEND:
+    klass = RBS_AST_Members_Extend;
+    break;
+  case kPREPEND:
+    klass = RBS_AST_Members_Prepend;
+    break;
+  default:
+    rb_raise(rb_eRuntimeError, "Unexpected");
+  }
+
+  VALUE name;
+  VALUE args = rb_ary_new();
+  range name_range;
+  range args_range;
+  class_instance_name(state, &name, args, &name_range, &args_range);
+
+  VALUE location = rbs_location_pp(state->buffer, &start, &state->current_token.range.end);
+
+  return rbs_ast_members_mixin(
+    klass,
+    name,
+    args,
+    annotations,
+    location,
+    get_comment(state, comment_pos.line)
+  );
+}
+
+/*
   interface_members ::= {} ...<interface_member> kEND
 
   interface_member ::= def_member
@@ -1280,6 +1241,12 @@ VALUE parse_interface_members(parserstate *state) {
     switch (state->current_token.type) {
     case kDEF:
       member = parse_member_def(state, annot_pos, annotations);
+      break;
+
+    case kINCLUDE:
+    case kEXTEND:
+    case kPREPEND:
+      member = parse_mixin_member(state, annot_pos, annotations);
       break;
 
     default:
@@ -1305,7 +1272,7 @@ VALUE parse_interface_decl(parserstate *state, position comment_pos, VALUE annot
 
   parser_advance(state);
 
-  VALUE name = parse_interface_name(state);
+  VALUE name = parse_type_name(state, INTERFACE_NAME);
   VALUE params = parse_module_type_params(state);
   VALUE members = parse_interface_members(state);
 
