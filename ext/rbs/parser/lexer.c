@@ -30,11 +30,11 @@ unsigned int peekn(lexstate *state, unsigned int chars[], size_t length) {
 }
 
 int token_chars(token tok) {
-  return tok.end.char_pos - tok.start.char_pos;
+  return tok.range.end.char_pos - tok.range.start.char_pos;
 }
 
 int token_bytes(token tok) {
-  return tok.end.byte_pos - tok.start.byte_pos;
+  return RANGE_BYTES(tok.range);
 }
 
 /**
@@ -47,8 +47,8 @@ token next_token(lexstate *state, enum TokenType type, position start) {
   token t;
 
   t.type = type;
-  t.start = start;
-  t.end = state->current;
+  t.range.start = start;
+  t.range.end = state->current;
   state->first_token_of_line = false;
 
   return t;
@@ -253,8 +253,8 @@ static token lex_ident(lexstate *state, position start, enum TokenType default_t
 
   if (tok.type == tLIDENT) {
     VALUE string = rb_enc_str_new(
-      RSTRING_PTR(state->string) + tok.start.byte_pos,
-      tok.end.byte_pos - tok.start.byte_pos,
+      RSTRING_PTR(state->string) + tok.range.start.byte_pos,
+      RANGE_BYTES(tok.range),
       rb_enc_get(state->string)
     );
 
@@ -695,5 +695,5 @@ token rbsparser_next_token(lexstate *state) {
 }
 
 char *peek_token(lexstate *state, token tok) {
-  return RSTRING_PTR(state->string) + tok.start.byte_pos;
+  return RSTRING_PTR(state->string) + tok.range.start.byte_pos;
 }

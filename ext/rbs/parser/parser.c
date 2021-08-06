@@ -60,7 +60,7 @@ static void __attribute__((noreturn)) raise_syntax_error() {
 }
 
 static void __attribute__((noreturn)) raise_syntax_error_e(parserstate *state, token tok, char *expected) {
-  rb_raise(rb_eRuntimeError, "Syntax error at line %d char %d, expected %s, but got %s", tok.start.line, tok.start.column, expected, RBS_TOKENTYPE_NAMES[tok.type]);
+  rb_raise(rb_eRuntimeError, "Syntax error at line %d char %d, expected %s, but got %s", tok.range.start.line, tok.range.start.column, expected, RBS_TOKENTYPE_NAMES[tok.type]);
 }
 
 VALUE parse_type_name(parserstate *state) {
@@ -271,7 +271,7 @@ static bool is_keyword_token(enum TokenType type) {
  * ```
  * */
 static VALUE parse_function_param(parserstate *state) {
-  position start = state->next_token.start;
+  position start = state->next_token.range.start;
   VALUE type = parse_type(state);
 
   if (state->next_token.type == pCOMMA || state->next_token.type == pRPAREN) {
@@ -283,7 +283,7 @@ static VALUE parse_function_param(parserstate *state) {
   } else {
     parser_advance(state);
     VALUE name = ID2SYM(INTERN_TOKEN(state, state->current_token));
-    VALUE location = rbs_location_pp(state->buffer, &start, &state->current_token.end);
+    VALUE location = rbs_location_pp(state->buffer, &start, &state->current_token.range.end);
     return rbs_function_param(type, name, location);
   }
 }
@@ -594,11 +594,11 @@ static void parse_function(parserstate *state, VALUE *function, VALUE *block) {
  *                      ^       end
  * */
 static VALUE parse_proc_type(parserstate *state) {
-  position start = state->current_token.start;
+  position start = state->current_token.range.start;
   VALUE function = Qnil;
   VALUE block = Qnil;
   parse_function(state, &function, &block);
-  position end = state->current_token.end;
+  position end = state->current_token.range.end;
   VALUE loc = rbs_location_pp(state->buffer, &start, &end);
 
   return rbs_proc(function, block, loc);
@@ -662,7 +662,7 @@ static VALUE parse_symbol(parserstate *state) {
   int bytes = token_bytes(state->current_token) - offset_bytes;
 
   unsigned int first_char = rb_enc_mbc_to_codepoint(
-    RSTRING_PTR(string) + state->current_token.start.byte_pos + offset_bytes,
+    RSTRING_PTR(string) + state->current_token.range.start.byte_pos + offset_bytes,
     RSTRING_END(string),
     enc
   );
@@ -719,7 +719,7 @@ static VALUE parse_simple(parserstate *state) {
     return rbs_base_type(RBS_Types_Bases_Void, rbs_location_current_token(state));
   case tINTEGER: {
     VALUE literal = rb_funcall(
-      string_of_loc(state, state->current_token.start, state->current_token.end),
+      string_of_loc(state, state->current_token.range.start, state->current_token.range.end),
       rb_intern("to_i"),
       0
     );
@@ -733,14 +733,14 @@ static VALUE parse_simple(parserstate *state) {
   case kFALSE:
     return rbs_literal(Qfalse, rbs_location_current_token(state));
   case tSQSTRING: {
-    VALUE literal = string_of_bytepos(state, state->current_token.start.byte_pos + 1, state->current_token.end.byte_pos - 1);
+    VALUE literal = string_of_bytepos(state, state->current_token.range.start.byte_pos + 1, state->current_token.range.end.byte_pos - 1);
     return rbs_literal(
       literal,
       rbs_location_current_token(state)
     );
   }
   case tDQSTRING: {
-    VALUE literal = string_of_loc(state, state->current_token.start, state->current_token.end);
+    VALUE literal = string_of_loc(state, state->current_token.range.start, state->current_token.range.end);
     rbs_unescape_string(literal);
     return rbs_literal(
       literal,
@@ -806,10 +806,10 @@ static VALUE parse_simple(parserstate *state) {
     return rbs_tuple(types);
   }
   case pLBRACE: {
-    position start = state->current_token.start;
+    position start = state->current_token.range.start;
     VALUE fields = parse_record_attributes(state);
     parser_advance_assert(state, pRBRACE);
-    position end = state->current_token.end;
+    position end = state->current_token.range.end;
     VALUE location = rbs_location_pp(state->buffer, &start, &end);
     return rbs_record(fields, location);
   }
@@ -873,7 +873,7 @@ VALUE parse_method_type(parserstate *state) {
   VALUE block = Qnil;
   id_table *table = parser_push_table(state);
 
-  position start = state->next_token.start;
+  position start = state->next_token.range.start;
 
   if (state->next_token.type == pLBRACKET) {
     parser_advance(state);
@@ -898,7 +898,7 @@ VALUE parse_method_type(parserstate *state) {
 
   parse_function(state, &function, &block);
 
-  position end = state->current_token.end;
+  position end = state->current_token.range.end;
 
   VALUE type_params = rb_ary_new();
   for (size_t i = 0; i < table->count; i++) {
@@ -916,13 +916,13 @@ VALUE parse_method_type(parserstate *state) {
 }
 
 VALUE parse_global_decl(parserstate *state) {
-  position start = state->current_token.start;
+  position start = state->current_token.range.start;
   VALUE typename = ID2SYM(INTERN_TOKEN(state, state->current_token));
 
   parser_advance_assert(state, pCOLON);
 
   VALUE type = parse_type(state);
-  position end = state->current_token.end;
+  position end = state->current_token.range.end;
 
   return rbs_ast_decl_global(
     typename,
@@ -940,13 +940,13 @@ VALUE parse_global_decl(parserstate *state) {
  *
  * */
 VALUE parse_const_decl(parserstate *state) {
-  position start = state->current_token.start;
+  position start = state->current_token.range.start;
   VALUE typename = parse_const_name(state);
 
   parser_advance_assert(state, pCOLON);
 
   VALUE type = parse_type(state);
-  position end = state->current_token.end;
+  position end = state->current_token.range.end;
 
   return rbs_ast_decl_constant(
     typename,
@@ -957,7 +957,7 @@ VALUE parse_const_decl(parserstate *state) {
 }
 
 VALUE parse_type_decl(parserstate *state, position comment_pos, VALUE annotations) {
-  position start = state->current_token.start;
+  position start = state->current_token.range.start;
   comment_pos = nonnull_pos_or(comment_pos, start);
 
   parser_advance(state);
@@ -966,7 +966,7 @@ VALUE parse_type_decl(parserstate *state, position comment_pos, VALUE annotation
   parser_advance_assert(state, pEQ);
 
   VALUE type = parse_type(state);
-  position end = state->current_token.end;
+  position end = state->current_token.range.end;
 
   return rbs_ast_decl_alias(
     typename,
@@ -982,7 +982,7 @@ VALUE parse_annotation(parserstate *state) {
   rb_encoding *enc = rb_enc_get(content);
 
   char *p = peek_token(state->lexstate, state->current_token);
-  int bytes = state->current_token.end.byte_pos - state->current_token.start.byte_pos;
+  int bytes = state->current_token.range.end.byte_pos - state->current_token.range.start.byte_pos;
 
   VALUE string = rb_enc_str_new(p, bytes, enc);
   VALUE location = rbs_location_current_token(state);
@@ -1012,7 +1012,7 @@ VALUE parse_module_type_params(parserstate *state) {
       if (state->next_token.type == kUNCHECKED) {
         unchecked = Qtrue;
         parser_advance(state);
-        start = state->current_token.start;
+        start = state->current_token.range.start;
       }
 
       if (state->next_token.type == kIN || state->next_token.type == kOUT) {
@@ -1027,18 +1027,18 @@ VALUE parse_module_type_params(parserstate *state) {
 
         parser_advance(state);
         if (null_position_p(start)) {
-          start = state->current_token.start;
+          start = state->current_token.range.start;
         }
       }
 
       parser_advance_assert(state, tUIDENT);
       if (null_position_p(start)) {
-        start = state->current_token.start;
+        start = state->current_token.range.start;
       }
 
       name = ID2SYM(INTERN_TOKEN(state, state->current_token));
 
-      VALUE loc = rbs_location_pp(state->buffer, &start, &state->current_token.end);
+      VALUE loc = rbs_location_pp(state->buffer, &start, &state->current_token.range.end);
       VALUE param = rbs_ast_decl_module_type_params_param(name, variance, unchecked, loc);
       rb_funcall(params, rb_intern("add"), 1, param);
 
@@ -1070,7 +1070,7 @@ void parse_annotations(parserstate *state, VALUE annotations, position *annot_po
       parser_advance(state);
 
       if (null_position_p((*annot_pos))) {
-        *annot_pos = state->current_token.start;
+        *annot_pos = state->current_token.range.start;
       }
 
       rb_ary_push(annotations, parse_annotation(state));
@@ -1097,7 +1097,7 @@ void parse_annotations(parserstate *state, VALUE annotations, position *annot_po
       ^^^
           ^^^
 */
-VALUE parse_method_name(parserstate *state, position *start, position *end) {
+VALUE parse_method_name(parserstate *state, range *range) {
   parser_advance(state);
 
   switch (state->current_token.type)
@@ -1106,29 +1106,27 @@ VALUE parse_method_name(parserstate *state, position *start, position *end) {
   case tLIDENT:
   case tULIDENT:
   KEYWORD_CASES
-    if (state->next_token.type == pQUESTION && state->current_token.end.byte_pos == state->next_token.start.byte_pos) {
-      *start = state->current_token.start;
-      *end = state->next_token.end;
+    if (state->next_token.type == pQUESTION && state->current_token.range.end.byte_pos == state->next_token.range.start.byte_pos) {
+      range->start = state->current_token.range.start;
+      range->end = state->next_token.range.end;
       parser_advance(state);
 
       ID id = rb_intern3(
-        RSTRING_PTR(state->lexstate->string) + start->byte_pos,
-        end->byte_pos - start->byte_pos,
+        RSTRING_PTR(state->lexstate->string) + range->start.byte_pos,
+        range->end.byte_pos - range->start.byte_pos,
         rb_enc_get(state->lexstate->string)
       );
 
       return ID2SYM(id);
     } else {
-      *start = state->current_token.start;
-      *end = state->current_token.end;
+      *range = state->current_token.range;
       return ID2SYM(INTERN_TOKEN(state, state->current_token));
     }
 
   case tBANGIDENT:
   case tEQIDENT:
   case tQIDENT:
-    *start = state->current_token.start;
-    *end = state->current_token.end;
+    *range = state->current_token.range;
     return ID2SYM(INTERN_TOKEN(state, state->current_token));
 
   default:
@@ -1169,7 +1167,7 @@ InstanceSingletonKind parse_instance_singleton_kind(parserstate *state) {
       kind = SINGLETON_KIND;
     } else if (
       state->next_token.type == pQUESTION
-    && state->next_token.end.char_pos == state->next_token2.start.char_pos
+    && state->next_token.range.end.char_pos == state->next_token2.range.start.char_pos
     && state->next_token2.type == pDOT) {
       parser_advance(state);
       parser_advance(state);
@@ -1188,16 +1186,15 @@ InstanceSingletonKind parse_instance_singleton_kind(parserstate *state) {
                              ^^^       current (end)
 */
 VALUE parse_member_def(parserstate *state, position comment_pos, VALUE annotations) {
-  position start = state->current_token.start;
+  position start = state->current_token.range.start;
   comment_pos = nonnull_pos_or(comment_pos, start);
 
   VALUE comment = get_comment(state, comment_pos.line);
 
   InstanceSingletonKind kind = parse_instance_singleton_kind(state);
 
-  position name_start = NullPosition;
-  position name_end = NullPosition;
-  VALUE name = parse_method_name(state, &name_start, &name_end);
+  position name_range;
+  VALUE name = parse_method_name(state, &name_range);
   VALUE method_types = rb_ary_new();
   VALUE overload = Qfalse;
 
@@ -1246,7 +1243,7 @@ VALUE parse_member_def(parserstate *state, position comment_pos, VALUE annotatio
     break;
   }
 
-  VALUE location = rbs_location_pp(state->buffer, &start, &state->current_token.end);
+  VALUE location = rbs_location_pp(state->buffer, &start, &state->current_token.range.end);
 
   return rbs_ast_members_method_definition(
     name,
@@ -1296,7 +1293,7 @@ VALUE parse_interface_members(parserstate *state) {
                                      ^^^^^       current (end)
 */
 VALUE parse_interface_decl(parserstate *state, position comment_pos, VALUE annotations) {
-  position start = state->current_token.start;
+  position start = state->current_token.range.start;
   comment_pos = nonnull_pos_or(comment_pos, start);
 
   parser_advance(state);
@@ -1307,7 +1304,7 @@ VALUE parse_interface_decl(parserstate *state, position comment_pos, VALUE annot
 
   parser_advance_assert(state, kEND);
 
-  position end = state->current_token.end;
+  position end = state->current_token.range.end;
 
   return rbs_ast_decl_interface(
     name,

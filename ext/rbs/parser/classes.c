@@ -171,11 +171,11 @@ VALUE rbs_location_pp(VALUE buffer, const position *start_pos, const position *e
 }
 
 VALUE rbs_location_tok(VALUE buffer, const token *tok) {
-  return rbs_location(buffer, tok->start.char_pos, tok->end.char_pos);
+  return rbs_location(buffer, tok->range.start.char_pos, tok->range.end.char_pos);
 }
 
 VALUE rbs_location_current_token(parserstate *state) {
-  return rbs_location(state->buffer, state->current_token.start.char_pos, state->current_token.end.char_pos);
+  return rbs_location(state->buffer, state->current_token.range.start.char_pos, state->current_token.range.end.char_pos);
 }
 
 VALUE rbs_block(VALUE type, VALUE required) {

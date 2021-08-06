@@ -93,9 +93,9 @@ void parser_pop_table(parserstate *state) {
 
 void print_parser(parserstate *state) {
   pp(state->buffer);
-  printf("  current_token = %s (%d...%d)\n", RBS_TOKENTYPE_NAMES[state->current_token.type], state->current_token.start.char_pos, state->current_token.end.char_pos);
-  printf("     next_token = %s (%d...%d)\n", RBS_TOKENTYPE_NAMES[state->next_token.type], state->next_token.start.char_pos, state->next_token.end.char_pos);
-  printf("    next_token2 = %s (%d...%d)\n", RBS_TOKENTYPE_NAMES[state->next_token2.type], state->next_token2.start.char_pos, state->next_token2.end.char_pos);
+  printf("  current_token = %s (%d...%d)\n", RBS_TOKENTYPE_NAMES[state->current_token.type], state->current_token.range.start.char_pos, state->current_token.range.end.char_pos);
+  printf("     next_token = %s (%d...%d)\n", RBS_TOKENTYPE_NAMES[state->next_token.type], state->next_token.range.start.char_pos, state->next_token.range.end.char_pos);
+  printf("    next_token2 = %s (%d...%d)\n", RBS_TOKENTYPE_NAMES[state->next_token2.type], state->next_token2.range.start.char_pos, state->next_token2.range.end.char_pos);
 }
 
 void parser_advance(parserstate *state) {
@@ -136,14 +136,14 @@ void print_token(token tok) {
   printf(
     "%s char=%d...%d\n",
     RBS_TOKENTYPE_NAMES[tok.type],
-    tok.start.char_pos,
-    tok.end.char_pos
+    tok.range.start.char_pos,
+    tok.range.end.char_pos
   );
 }
 
 void insert_comment_line(parserstate *state, token tok) {
   if (state->last_comment) {
-    if (state->last_comment->end.line != tok.start.line - 1) {
+    if (state->last_comment->end.line != tok.range.start.line - 1) {
       free(state->last_comment->tokens);
       free(state->last_comment);
       state->last_comment = NULL;
@@ -154,7 +154,7 @@ void insert_comment_line(parserstate *state, token tok) {
     state->last_comment = calloc(1, sizeof(comment));
     state->last_comment->tokens = calloc(10, sizeof(token));
     state->last_comment->line_size = 10;
-    state->last_comment->start = tok.start;
+    state->last_comment->start = tok.range.start;
   }
 
   if (state->last_comment->line_count == state->last_comment->line_size) {
@@ -166,7 +166,7 @@ void insert_comment_line(parserstate *state, token tok) {
   }
 
   state->last_comment->tokens[state->last_comment->line_count++] = tok;
-  state->last_comment->end = tok.end;
+  state->last_comment->end = tok.range.end;
 }
 
 VALUE get_comment(parserstate *state, int subject_line) {
@@ -182,7 +182,7 @@ VALUE get_comment(parserstate *state, int subject_line) {
   for (size_t i = 0; i < comment->line_count; i++) {
     token tok = comment->tokens[i];
     char *p = peek_token(state->lexstate, tok);
-    rb_str_cat(string, p, tok.end.byte_pos - tok.start.byte_pos);
+    rb_str_cat(string, p, RANGE_BYTES(tok.range));
     rb_str_cat_cstr(string, "\n");
   }
 

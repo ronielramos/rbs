@@ -82,9 +82,13 @@ typedef struct {
 } position;
 
 typedef struct {
-  enum TokenType type;
   position start;
   position end;
+} range;
+
+typedef struct {
+  enum TokenType type;
+  range range;
 } token;
 
 typedef struct {
@@ -221,10 +225,47 @@ VALUE rbs_union(VALUE types);
 VALUE rbs_intersection(VALUE types);
 VALUE rbs_tuple(VALUE types);
 VALUE rbs_optional(VALUE type);
+
+/**
+ * Returns RBS::Location object with character positions.
+ * */
 VALUE rbs_location(VALUE buffer, int start_pos, int end_pos);
+
+/**
+ * Returns RBS::Location object with start/end positions.
+ *
+ * @param start_pos
+ * @param end_pos
+ * @return New RSS::Location object.
+ * */
 VALUE rbs_location_pp(VALUE buffer, const position *start_pos, const position *end_pos);
+
+/**
+ * Returns RBS::Location object with position range.
+ *
+ * @param buffer
+ * @param range
+ * @return New RBS::Location object.
+ * */
+VALUE rbs_location_rg(VALUE buffer, const range *range);
+
+/**
+ * Returns RBS::Location object from a token.
+ *
+ * @param buffer
+ * @param tok
+ * @return New RBS::Location object.
+ * */
 VALUE rbs_location_tok(VALUE buffer, const token *tok);
+
+/**
+ * Returns RBS::Location object of `current_token` of a parser state.
+ *
+ * @param state
+ * @return New RBS::Location object.
+ * */
 VALUE rbs_location_current_token(parserstate *state);
+
 VALUE rbs_function(VALUE required_positional_params, VALUE optional_positional_params, VALUE rest_positional_params, VALUE trailing_positional_params, VALUE required_keywords, VALUE optional_keywords, VALUE rest_keywords, VALUE return_type);
 VALUE rbs_function_param(VALUE type, VALUE name, VALUE location);
 VALUE rbs_block(VALUE type, VALUE required);
@@ -281,3 +322,4 @@ extern const char *RBS_TOKENTYPE_NAMES[];
 #define null_position_p(pos) (pos.byte_pos == -1)
 #define nonnull_pos_or(pos1, pos2) (null_position_p(pos1) ? pos2 : pos1)
 
+#define RANGE_BYTES(range) (range.end.byte_pos - range.start.byte_pos)
