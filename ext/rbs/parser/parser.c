@@ -59,7 +59,7 @@ static void __attribute__((noreturn)) raise_syntax_error() {
   rb_raise(rb_eRuntimeError, "Syntax error");
 }
 
-static void __attribute__((noreturn)) raise_syntax_error_e(parserstate *state, token tok, char *expected) {
+static void __attribute__((noreturn)) raise_syntax_error_e(parserstate *state, token tok, const char *expected) {
   rb_raise(
     rb_eRuntimeError,
     "Syntax error at line %d char %d, expected %s, but got %s",
@@ -639,6 +639,8 @@ VALUE parse_record_attributes(parserstate *state) {
       case kFALSE:
         key = rb_funcall(parse_type(state), rb_intern("literal"), 0);
         break;
+      default:
+        rb_raise(rb_eRuntimeError, "Unexpected");
       }
 
       parser_advance_assert(state, pFATARROW);
@@ -1034,6 +1036,8 @@ VALUE parse_module_type_params(parserstate *state) {
         case kOUT:
           variance = ID2SYM(rb_intern("covariant"));
           break;
+        default:
+          rb_raise(rb_eRuntimeError, "Unexpected");
         }
 
         parser_advance(state);
@@ -1204,7 +1208,7 @@ VALUE parse_member_def(parserstate *state, position comment_pos, VALUE annotatio
 
   InstanceSingletonKind kind = parse_instance_singleton_kind(state);
 
-  position name_range;
+  range name_range;
   VALUE name = parse_method_name(state, &name_range);
   VALUE method_types = rb_ary_new();
   VALUE overload = Qfalse;
