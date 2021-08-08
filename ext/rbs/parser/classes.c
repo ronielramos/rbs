@@ -41,7 +41,7 @@ VALUE rbs_type_name(VALUE namespace, VALUE name) {
   );
 }
 
-VALUE rbs_class_instance(VALUE typename, VALUE type_args) {
+VALUE rbs_class_instance(VALUE typename, VALUE type_args, VALUE location) {
   VALUE args = rb_hash_new();
   rb_hash_aset(args, ID2SYM(rb_intern("name")), typename);
   rb_hash_aset(args, ID2SYM(rb_intern("args")), type_args);
@@ -56,10 +56,10 @@ VALUE rbs_class_instance(VALUE typename, VALUE type_args) {
   );
 }
 
-VALUE rbs_class_singleton(VALUE typename) {
+VALUE rbs_class_singleton(VALUE typename, VALUE location) {
   VALUE args = rb_hash_new();
   rb_hash_aset(args, ID2SYM(rb_intern("name")), typename);
-  rb_hash_aset(args, ID2SYM(rb_intern("location")), Qnil);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
 
   return rb_funcallv_kw(
     RBS_Types_ClassSingleton,
@@ -70,10 +70,10 @@ VALUE rbs_class_singleton(VALUE typename) {
   );
 }
 
-VALUE rbs_alias(VALUE typename) {
+VALUE rbs_alias(VALUE typename, VALUE location) {
   VALUE args = rb_hash_new();
   rb_hash_aset(args, ID2SYM(rb_intern("name")), typename);
-  rb_hash_aset(args, ID2SYM(rb_intern("location")), Qnil);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
 
   return rb_funcallv_kw(
     RBS_Types_Alias,
@@ -84,11 +84,11 @@ VALUE rbs_alias(VALUE typename) {
   );
 }
 
-VALUE rbs_interface(VALUE typename, VALUE type_args) {
+VALUE rbs_interface(VALUE typename, VALUE type_args, VALUE location) {
   VALUE args = rb_hash_new();
   rb_hash_aset(args, ID2SYM(rb_intern("name")), typename);
   rb_hash_aset(args, ID2SYM(rb_intern("args")), type_args);
-  rb_hash_aset(args, ID2SYM(rb_intern("location")), Qnil);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
 
   return rb_funcallv_kw(
     RBS_Types_Interface,
@@ -155,27 +155,24 @@ VALUE rbs_optional(VALUE type) {
   );
 }
 
-VALUE rbs_location(VALUE buffer, int start_pos, int end_pos) {
-  return rb_funcall(
-    RBS_Location,
-    rb_intern("new"),
-    3,
-    buffer,
-    INT2FIX(start_pos),
-    INT2FIX(end_pos)
-  );
-}
-
 VALUE rbs_location_pp(VALUE buffer, const position *start_pos, const position *end_pos) {
-  return rbs_location(buffer, start_pos->char_pos, end_pos->char_pos);
+  range rg = { *start_pos, *end_pos };
+  rg.start = *start_pos;
+  rg.end = *end_pos;
+
+  return rbs_new_location(buffer, rg);
 }
 
 VALUE rbs_location_tok(VALUE buffer, const token *tok) {
-  return rbs_location(buffer, tok->range.start.char_pos, tok->range.end.char_pos);
+  return rbs_location_pp(buffer, &tok->range.start, &tok->range.end);
 }
 
 VALUE rbs_location_current_token(parserstate *state) {
-  return rbs_location(state->buffer, state->current_token.range.start.char_pos, state->current_token.range.end.char_pos);
+  return rbs_location_pp(
+    state->buffer,
+    &state->current_token.range.start,
+    &state->current_token.range.end
+  );
 }
 
 VALUE rbs_block(VALUE type, VALUE required) {

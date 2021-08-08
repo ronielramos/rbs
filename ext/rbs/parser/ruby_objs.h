@@ -87,19 +87,21 @@ extern VALUE RBS_MethodType;
 VALUE rbs_base_type(VALUE klass, VALUE location);
 VALUE rbs_namespace(VALUE path, VALUE absolute);
 VALUE rbs_type_name(VALUE namespace, VALUE name);
-VALUE rbs_class_instance(VALUE typename, VALUE type_args);
-VALUE rbs_class_singleton(VALUE typename);
-VALUE rbs_alias(VALUE typename);
-VALUE rbs_interface(VALUE typename, VALUE type_args);
+VALUE rbs_class_instance(VALUE typename, VALUE type_args, VALUE location);
+VALUE rbs_class_singleton(VALUE typename, VALUE location);
+VALUE rbs_alias(VALUE typename, VALUE location);
+VALUE rbs_interface(VALUE typename, VALUE type_args, VALUE location);
 VALUE rbs_union(VALUE types);
 VALUE rbs_intersection(VALUE types);
 VALUE rbs_tuple(VALUE types);
 VALUE rbs_optional(VALUE type);
-
-/**
- * Returns RBS::Location object with character positions.
- * */
-VALUE rbs_location(VALUE buffer, int start_pos, int end_pos);
+VALUE rbs_function(VALUE required_positional_params, VALUE optional_positional_params, VALUE rest_positional_params, VALUE trailing_positional_params, VALUE required_keywords, VALUE optional_keywords, VALUE rest_keywords, VALUE return_type);
+VALUE rbs_function_param(VALUE type, VALUE name, VALUE location);
+VALUE rbs_block(VALUE type, VALUE required);
+VALUE rbs_proc(VALUE function, VALUE block, VALUE location);
+VALUE rbs_literal(VALUE literal, VALUE location);
+VALUE rbs_record(VALUE fields, VALUE location);
+VALUE rbs_variable(VALUE name, VALUE location);
 
 /**
  * Returns RBS::Location object with start/end positions.
@@ -135,14 +137,6 @@ VALUE rbs_location_tok(VALUE buffer, const token *tok);
  * @return New RBS::Location object.
  * */
 VALUE rbs_location_current_token(parserstate *state);
-
-VALUE rbs_function(VALUE required_positional_params, VALUE optional_positional_params, VALUE rest_positional_params, VALUE trailing_positional_params, VALUE required_keywords, VALUE optional_keywords, VALUE rest_keywords, VALUE return_type);
-VALUE rbs_function_param(VALUE type, VALUE name, VALUE location);
-VALUE rbs_block(VALUE type, VALUE required);
-VALUE rbs_proc(VALUE function, VALUE block, VALUE location);
-VALUE rbs_literal(VALUE literal, VALUE location);
-VALUE rbs_record(VALUE fields, VALUE location);
-VALUE rbs_variable(VALUE name, VALUE location);
 
 VALUE rbs_method_type(VALUE type_params, VALUE type, VALUE block, VALUE location);
 
