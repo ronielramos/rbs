@@ -3,6 +3,7 @@
 
 #include "ruby.h"
 #include "lexer.h"
+#include "location.h"
 
 typedef struct id_table {
   size_t size;

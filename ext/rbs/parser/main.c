@@ -38,7 +38,6 @@ VALUE RBS_AST_Members_Prepend;
 VALUE RBS_AST_Members_Private;
 VALUE RBS_AST_Members_Public;
 
-VALUE RBS_Location;
 VALUE RBS_Namespace;
 VALUE RBS_TypeName;
 
@@ -165,7 +164,6 @@ Init_parser(void)
   RBS_AST_Members_Private = rb_const_get(RBS_AST_Members, rb_intern("Private"));
   RBS_AST_Members_Public = rb_const_get(RBS_AST_Members, rb_intern("Public"));
 
-  RBS_Location = rb_const_get(RBS, rb_intern("Location"));
   RBS_Namespace = rb_const_get(RBS, rb_intern("Namespace"));
   RBS_TypeName = rb_const_get(RBS, rb_intern("TypeName"));
   RBS_Types = rb_const_get(RBS, rb_intern("Types"));
@@ -199,6 +197,8 @@ Init_parser(void)
   sym_class = ID2SYM(rb_intern_const("class"));
   sym_interface = ID2SYM(rb_intern_const("interface"));
   sym_alias = ID2SYM(rb_intern_const("alias"));
+
+  init_location();
 
   RBSParser = rb_define_class_under(RBS, "Parser", rb_cObject);
 

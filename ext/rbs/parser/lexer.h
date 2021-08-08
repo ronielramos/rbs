@@ -111,6 +111,7 @@ int token_chars(token tok);
 int token_bytes(token tok);
 
 #define null_position_p(pos) (pos.byte_pos == -1)
+#define null_range_p(range) (range.start.byte_pos == -1)
 #define nonnull_pos_or(pos1, pos2) (null_position_p(pos1) ? pos2 : pos1)
 #define RANGE_BYTES(range) (range.end.byte_pos - range.start.byte_pos)
 

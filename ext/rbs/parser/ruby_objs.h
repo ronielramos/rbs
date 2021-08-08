@@ -15,6 +15,8 @@ extern VALUE sym_class;
 extern VALUE sym_alias;
 extern VALUE sym_interface;
 
+extern VALUE RBS;
+
 extern VALUE RBS_AST;
 extern VALUE RBS_AST_Comment;
 extern VALUE RBS_AST_Annotation;
