@@ -1114,15 +1114,18 @@ typedef enum {
                             | {} kSELF <`.`>
                             | {} kSELF~`?` <`.`>
 */
-InstanceSingletonKind parse_instance_singleton_kind(parserstate *state) {
+InstanceSingletonKind parse_instance_singleton_kind(parserstate *state, range *rg) {
   InstanceSingletonKind kind = INSTANCE_KIND;
 
   if (state->next_token.type == kSELF) {
+    range self_range = state->next_token.range;
     parser_advance(state);
 
     if (state->next_token.type == pDOT) {
       parser_advance(state);
       kind = SINGLETON_KIND;
+      rg->start = self_range.start;
+      rg->end = state->current_token.range.end;
     } else if (
       state->next_token.type == pQUESTION
     && state->next_token.range.end.char_pos == state->next_token2.range.start.char_pos
@@ -1130,9 +1133,13 @@ InstanceSingletonKind parse_instance_singleton_kind(parserstate *state) {
       parser_advance(state);
       parser_advance(state);
       kind = INSTANCE_SINGLETON_KIND;
+      rg->start = self_range.start;
+      rg->end = state->current_token.range.end;
     } else {
       raise_syntax_error_e(state, state->next_token, "instance/singleton kind, `self.` or `self?.`");
     }
+  } else {
+    *rg = NULL_RANGE;
   }
 
   return kind;
@@ -1149,19 +1156,26 @@ InstanceSingletonKind parse_instance_singleton_kind(parserstate *state) {
  * @param accept_overload `true` to accept overloading (...) definition.
  * */
 VALUE parse_member_def(parserstate *state, bool instance_only, bool accept_overload, position comment_pos, VALUE annotations) {
-  position start = state->current_token.range.start;
-  comment_pos = nonnull_pos_or(comment_pos, start);
+  range member_range;
+  range keyword_range;
+  range name_range;
+  range kind_range;
+  range overload_range = NULL_RANGE;
 
+  keyword_range = state->current_token.range;
+  member_range.start = keyword_range.start;
+
+  comment_pos = nonnull_pos_or(comment_pos, keyword_range.start);
   VALUE comment = get_comment(state, comment_pos.line);
 
   InstanceSingletonKind kind;
   if (instance_only) {
+    kind_range = NULL_RANGE;
     kind = INSTANCE_KIND;
   } else {
-    kind = parse_instance_singleton_kind(state);
+    kind = parse_instance_singleton_kind(state, &kind_range);
   }
 
-  range name_range;
   VALUE name = parse_method_name(state, &name_range);
   VALUE method_types = rb_ary_new();
   VALUE overload = Qfalse;
@@ -1176,6 +1190,7 @@ VALUE parse_member_def(parserstate *state, bool instance_only, bool accept_overl
     case pLBRACE:
     case pLBRACKET:
       rb_ary_push(method_types, parse_method_type(state));
+      member_range.end = state->current_token.range.end;
       break;
 
     case pDOT3:
@@ -1183,6 +1198,7 @@ VALUE parse_member_def(parserstate *state, bool instance_only, bool accept_overl
         overload = Qtrue;
         parser_advance(state);
         loop = false;
+        overload_range = state->current_token.range;
         break;
       } else {
         raise_syntax_error_e(
@@ -1220,7 +1236,12 @@ VALUE parse_member_def(parserstate *state, bool instance_only, bool accept_overl
     break;
   }
 
-  VALUE location = rbs_location_pp(state->buffer, &start, &state->current_token.range.end);
+  VALUE location = rbs_new_location(state->buffer, member_range);
+  rbs_loc *loc = check_location(location);
+  rbs_loc_add_required_child(loc, rb_intern("keyword"), keyword_range);
+  rbs_loc_add_required_child(loc, rb_intern("name"), name_range);
+  rbs_loc_add_optional_child(loc, rb_intern("kind"), kind_range);
+  rbs_loc_add_optional_child(loc, rb_intern("overload"), overload_range);
 
   return rbs_ast_members_method_definition(
     name,

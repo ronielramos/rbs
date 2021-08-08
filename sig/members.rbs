@@ -25,7 +25,7 @@ module RBS
         #          ^^^                     name
         #                            ^^^   overload
         #
-        type loc = Location::WithChildren[:keyword | :name, :kind | :overload]
+        type loc = Location[:keyword | :name, :kind | :overload]
 
         attr_reader name: Symbol
         attr_reader kind: kind
