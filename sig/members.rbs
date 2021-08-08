@@ -59,7 +59,7 @@ module RBS
         #      ^^^^                    name
         #          ^                   colon
         #
-        type loc = Location::WithChildren[:name | :colon, :kind]
+        type loc = Location[:name | :colon, :kind]
 
         attr_reader name: Symbol
         attr_reader type: Types::t
