@@ -73,4 +73,23 @@ end
       end
     end
   end
+
+  def test_module_decl
+    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+module Foo[X] : String, _Array[Symbol]
+end
+    RBS
+      decls[0].tap do |decl|
+        assert_instance_of RBS::AST::Declarations::Module, decl
+        assert_equal TypeName("Foo"), decl.name
+
+        assert_equal "module", decl.location[:keyword].source
+        assert_equal "Foo", decl.location[:name].source
+        assert_equal "[X]", decl.location[:type_params].source
+        assert_equal ":", decl.location[:colon].source
+        assert_equal "String, _Array[Symbol]", decl.location[:self_types].source
+        assert_equal "end", decl.location[:end].source
+      end
+    end
+  end
 end

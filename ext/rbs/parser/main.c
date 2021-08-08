@@ -22,6 +22,8 @@ VALUE RBS_AST_Declarations_Alias;
 VALUE RBS_AST_Declarations_Constant;
 VALUE RBS_AST_Declarations_Global;
 VALUE RBS_AST_Declarations_Interface;
+VALUE RBS_AST_Declarations_Module;
+VALUE RBS_AST_Declarations_Module_Self;
 
 VALUE RBS_AST_Members;
 VALUE RBS_AST_Members_Alias;
@@ -148,6 +150,8 @@ Init_parser(void)
   RBS_AST_Declarations_Constant = rb_const_get(RBS_AST_Declarations, rb_intern("Constant"));
   RBS_AST_Declarations_Global = rb_const_get(RBS_AST_Declarations, rb_intern("Global"));
   RBS_AST_Declarations_Interface = rb_const_get(RBS_AST_Declarations, rb_intern("Interface"));
+  RBS_AST_Declarations_Module = rb_const_get(RBS_AST_Declarations, rb_intern("Module"));
+  RBS_AST_Declarations_Module_Self = rb_const_get(RBS_AST_Declarations_Module, rb_intern("Self"));
 
   RBS_AST_Members = rb_const_get(RBS_AST, rb_intern("Members"));
   RBS_AST_Members_Alias = rb_const_get(RBS_AST_Members, rb_intern("Alias"));
@@ -223,6 +227,7 @@ Init_parser(void)
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("extend"), INT2FIX(kEXTEND));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("prepend"), INT2FIX(kPREPEND));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("alias"), INT2FIX(kALIAS));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("module"), INT2FIX(kMODULE));
 
   rb_define_const(RBSParser, "KEYWORDS", rbsparser_Keywords);
 

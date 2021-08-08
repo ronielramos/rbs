@@ -65,6 +65,7 @@ static const char *RBS_TOKENTYPE_NAMES[] = {
   "kEXTEND",          /* extend */
   "kPREPEND",         /* prepend */
   "kALIAS",           /* alias */
+  "kMODULE",          /* module */
 
   "tLIDENT",          /* Identifiers starting with lower case */
   "tUIDENT",          /* Identifiers starting with upper case */

@@ -36,6 +36,8 @@ extern VALUE RBS_AST_Declarations_Alias;
 extern VALUE RBS_AST_Declarations_Constant;
 extern VALUE RBS_AST_Declarations_Global;
 extern VALUE RBS_AST_Declarations_Interface;
+extern VALUE RBS_AST_Declarations_Module;
+extern VALUE RBS_AST_Declarations_Module_Self;
 
 extern VALUE RBS_AST_Members;
 extern VALUE RBS_AST_Members_Alias;
@@ -157,6 +159,8 @@ VALUE rbs_ast_decl_constant(VALUE name, VALUE type, VALUE location, VALUE commen
 VALUE rbs_ast_decl_global(VALUE name, VALUE type, VALUE location, VALUE comment);
 VALUE rbs_ast_decl_alias(VALUE name, VALUE type, VALUE annotations, VALUE location, VALUE comment);
 VALUE rbs_ast_decl_interface(VALUE name, VALUE type_params, VALUE members, VALUE annotations, VALUE location, VALUE comment);
+VALUE rbs_ast_decl_module(VALUE name, VALUE type_params, VALUE self_types, VALUE members, VALUE annotations, VALUE location, VALUE comment);
+VALUE rbs_ast_decl_module_self(VALUE name, VALUE args, VALUE location);
 
 VALUE rbs_ast_members_method_definition(VALUE name, VALUE kind, VALUE types, VALUE annotations, VALUE location, VALUE comment, VALUE overload);
 VALUE rbs_ast_members_variable(VALUE klass, VALUE name, VALUE type, VALUE location, VALUE comment);

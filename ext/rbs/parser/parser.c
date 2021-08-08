@@ -971,11 +971,13 @@ VALUE parse_annotation(parserstate *state) {
 
   module_type_param ::= kUNCHECKED? (kIN|kOUT|) tUIDENT
 */
-VALUE parse_module_type_params(parserstate *state) {
+VALUE parse_module_type_params(parserstate *state, range *rg) {
   VALUE params = rbs_ast_decl_module_type_params();
 
   if (state->next_token.type == pLBRACKET) {
     parser_advance(state);
+
+    rg->start = state->current_token.range.start;
 
     while (true) {
       VALUE name;
@@ -1039,6 +1041,9 @@ VALUE parse_module_type_params(parserstate *state) {
     }
 
     parser_advance_assert(state, pRBRACKET);
+    rg->end = state->current_token.range.end;
+  } else {
+    *rg = NULL_RANGE;
   }
 
   return params;
@@ -1470,6 +1475,7 @@ VALUE parse_interface_members(parserstate *state) {
   interface_decl ::= {`interface`} interface_name module_type_params interface_members <kEND>
 */
 VALUE parse_interface_decl(parserstate *state, position comment_pos, VALUE annotations) {
+  range type_params_range;
   position start = state->current_token.range.start;
   comment_pos = nonnull_pos_or(comment_pos, start);
 
@@ -1477,7 +1483,7 @@ VALUE parse_interface_decl(parserstate *state, position comment_pos, VALUE annot
   parser_advance(state);
 
   VALUE name = parse_type_name(state, INTERFACE_NAME);
-  VALUE params = parse_module_type_params(state);
+  VALUE params = parse_module_type_params(state, &type_params_range);
   VALUE members = parse_interface_members(state);
 
   parser_advance_assert(state, kEND);
@@ -1492,6 +1498,117 @@ VALUE parse_interface_decl(parserstate *state, position comment_pos, VALUE annot
     annotations,
     rbs_location_pp(state->buffer, &start, &end),
     get_comment(state, comment_pos.line)
+  );
+}
+
+/*
+  module_self_types ::= {`:`} module_self_type `,` ... `,` <module_self_type>
+
+  module_self_type ::= <module_name>
+                     | module_name `[` type_list <`]`>
+*/
+void parse_module_self_types(parserstate *state, VALUE array) {
+  while (true) {
+    range self_range;
+    range name_range;
+    range args_range = NULL_RANGE;
+
+    parser_advance(state);
+
+    name_range.start = self_range.start = state->current_token.range.start;
+    VALUE module_name = parse_type_name(state, CLASS_NAME | INTERFACE_NAME);
+    self_range.end = name_range.end = state->current_token.range.end;
+
+    VALUE args = rb_ary_new();
+    if (state->next_token.type == pLBRACKET) {
+      parser_advance(state);
+      args_range.start = state->current_token.range.start;
+      parse_type_list(state, pLBRACKET, args);
+      parser_advance(state);
+      self_range.end = args_range.end = state->current_token.range.end;
+    }
+
+    VALUE location = rbs_new_location(state->buffer, self_range);
+    rbs_loc *loc = check_location(location);
+    rbs_loc_add_required_child(loc, rb_intern("name"), name_range);
+    rbs_loc_add_optional_child(loc, rb_intern("args"), args_range);
+
+    VALUE self_type = rbs_ast_decl_module_self(module_name, args, location);
+    rb_ary_push(array, self_type);
+
+    if (state->next_token.type == pCOMMA) {
+      parser_advance(state);
+    } else {
+      break;
+    }
+  }
+}
+
+/*
+  module_decl ::= {`module`} module_name module_type_params module_members <kEND>
+                | {`module`} module_name module_type_params `:` module_self_types module_members <kEND>
+*/
+VALUE parse_module_decl(parserstate *state, position comment_pos, VALUE annotations) {
+  range decl_range;
+  range keyword_range;
+  range name_range;
+  range end_range;
+  range type_params_range;
+  range colon_range;
+  range self_types_range;
+
+  parser_push_table(state);
+
+  position start = state->current_token.range.start;
+  comment_pos = nonnull_pos_or(comment_pos, start);
+  VALUE comment = get_comment(state, comment_pos.line);
+
+  keyword_range = state->current_token.range;
+  decl_range.start = state->current_token.range.start;
+
+  parser_advance(state);
+  name_range.start = state->current_token.range.start;
+  VALUE module_name = parse_type_name(state, CLASS_NAME);
+  name_range.end = state->current_token.range.end;
+  VALUE type_params = parse_module_type_params(state, &type_params_range);
+  VALUE self_types = rb_ary_new();
+
+  if (state->next_token.type == pCOLON) {
+    parser_advance(state);
+    colon_range = state->current_token.range;
+    self_types_range.start = state->next_token.range.start;
+    parse_module_self_types(state, self_types);
+    self_types_range.end = state->current_token.range.end;
+  } else {
+    colon_range = NULL_RANGE;
+    self_types_range = NULL_RANGE;
+  }
+
+  VALUE members = rb_ary_new();
+
+  parser_advance_assert(state, kEND);
+  end_range = state->current_token.range;
+  decl_range.end = state->current_token.range.end;
+
+  VALUE location = rbs_new_location(state->buffer, decl_range);
+  rbs_loc *loc = check_location(location);
+  rbs_loc_add_required_child(loc, rb_intern("keyword"), keyword_range);
+  rbs_loc_add_required_child(loc, rb_intern("name"), name_range);
+  rbs_loc_add_required_child(loc, rb_intern("end"), end_range);
+  rbs_loc_add_optional_child(loc, rb_intern("type_params"), type_params_range);
+  rbs_loc_add_optional_child(loc, rb_intern("colon"), colon_range);
+  rbs_loc_add_optional_child(loc, rb_intern("self_types"), self_types_range);
+
+  parser_pop_table(state);
+
+  return rbs_ast_decl_module(
+    module_name,
+    type_params,
+    self_types,
+    members,
+    annotations,
+    location,
+    comment
   );
 }
 
@@ -1513,6 +1630,8 @@ VALUE parse_decl(parserstate *state) {
     return parse_type_decl(state, annot_pos, annotations);
   case kINTERFACE:
     return parse_interface_decl(state, annot_pos, annotations);
+  case kMODULE:
+    return parse_module_decl(state, annot_pos, annotations);
   default:
     raise_syntax_error_e(
       state,
