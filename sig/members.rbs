@@ -141,7 +141,7 @@ module RBS
         #                          ^^^^             ivar_name
         #                                ^          colon
         #
-        type loc = Location::WithChildren[:keyword | :name | :colon, :kind | :ivar | :ivar_name]
+        type loc = Location[:keyword | :name | :colon, :kind | :ivar | :ivar_name]
 
         attr_reader name: Symbol
         attr_reader type: Types::t
