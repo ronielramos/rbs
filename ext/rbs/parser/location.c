@@ -157,8 +157,8 @@ static VALUE location_start_loc(VALUE self) {
 
   if (loc->rg.start.line >= 0) {
     VALUE pair = rb_ary_new_capa(2);
-    rb_ary_push(pair, loc->rg.start.line);
-    rb_ary_push(pair, loc->rg.start.column);
+    rb_ary_push(pair, INT2FIX(loc->rg.start.line));
+    rb_ary_push(pair, INT2FIX(loc->rg.start.column));
     return pair;
   } else {
     return Qnil;
@@ -170,8 +170,8 @@ static VALUE location_end_loc(VALUE self) {
 
   if (loc->rg.end.line >= 0) {
     VALUE pair = rb_ary_new_capa(2);
-    rb_ary_push(pair, loc->rg.end.line);
-    rb_ary_push(pair, loc->rg.end.column);
+    rb_ary_push(pair, INT2FIX(loc->rg.end.line));
+    rb_ary_push(pair, INT2FIX(loc->rg.end.column));
     return pair;
   } else {
     return Qnil;

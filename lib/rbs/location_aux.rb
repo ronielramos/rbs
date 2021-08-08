@@ -1,7 +1,9 @@
 module RBS
   class Location
     def inspect
-      "#<#{self.class}:#{self.__id__} @buffer=#{buffer.name}, @pos=#{start_pos}...#{end_pos}, source='#{source.lines.first}', start_line=#{start_line}, start_column=#{start_column}>"
+      rks = each_required_key.to_a
+      ops = each_optional_key.to_a.map {|x| "?#{x}" }
+      "#<#{self.class}:#{self.__id__} buffer=#{buffer.name}, start=#{start_line}:#{start_column}, pos=#{start_pos}...#{end_pos}, children=#{(rks + ops).join(",")} source='#{source.lines.first&.chomp}'>"
     end
 
     def name
