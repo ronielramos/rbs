@@ -1285,8 +1285,15 @@ void class_instance_name(parserstate *state, TypeNameKind kind, VALUE *name, VAL
  * @param from_interface `true` when the member is in an interface.
  * */
 VALUE parse_mixin_member(parserstate *state, bool from_interface, position comment_pos, VALUE annotations) {
-  position start = state->current_token.range.start;
-  comment_pos = nonnull_pos_or(comment_pos, start);
+  range member_range;
+  range name_range;
+  range keyword_range;
+  range args_range = NULL_RANGE;
+
+  member_range.start = state->current_token.range.start;
+  comment_pos = nonnull_pos_or(comment_pos, member_range.start);
+
+  keyword_range = state->current_token.range;
 
   VALUE klass = Qnil;
   switch (state->current_token.type)
@@ -1316,14 +1323,19 @@ VALUE parse_mixin_member(parserstate *state, bool from_interface, position comme
 
   VALUE name;
   VALUE args = rb_ary_new();
-  range name_range;
-  range args_range;
   class_instance_name(
     state,
     from_interface ? INTERFACE_NAME : (INTERFACE_NAME | CLASS_NAME),
-    &name, args, &name_range, &args_range);
+    &name, args, &name_range, &args_range
+  );
 
-  VALUE location = rbs_location_pp(state->buffer, &start, &state->current_token.range.end);
+  member_range.end = state->current_token.range.end;
+
+  VALUE location = rbs_new_location(state->buffer, member_range);
+  rbs_loc *loc = check_location(location);
+  rbs_loc_add_required_child(loc, rb_intern("name"), name_range);
+  rbs_loc_add_required_child(loc, rb_intern("keyword"), keyword_range);
+  rbs_loc_add_optional_child(loc, rb_intern("args"), args_range);
 
   return rbs_ast_members_mixin(
     klass,

@@ -97,7 +97,7 @@ module RBS
         #              ^         arg_open
         #                     ^  arg_close
         #
-        type loc = Location::WithChildren[:name | :keyword, :args]
+        type loc = Location[:name | :keyword, :args]
 
         attr_reader name: TypeName
         attr_reader args: Array[Types::t]
