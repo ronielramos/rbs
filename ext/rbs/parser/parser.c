@@ -981,12 +981,18 @@ VALUE parse_module_type_params(parserstate *state) {
       VALUE name;
       VALUE unchecked = Qfalse;
       VALUE variance = ID2SYM(rb_intern("invariant"));
-      position start = NullPosition;
+
+      range param_range = NULL_RANGE;
+      range name_range;
+      range variance_range = NULL_RANGE;
+      range unchecked_range = NULL_RANGE;
+
+      param_range.start = state->next_token.range.start;
 
       if (state->next_token.type == kUNCHECKED) {
         unchecked = Qtrue;
         parser_advance(state);
-        start = state->current_token.range.start;
+        unchecked_range = state->current_token.range;
       }
 
       if (state->next_token.type == kIN || state->next_token.type == kOUT) {
@@ -1002,23 +1008,25 @@ VALUE parse_module_type_params(parserstate *state) {
         }
 
         parser_advance(state);
-        if (null_position_p(start)) {
-          start = state->current_token.range.start;
-        }
+        variance_range = state->current_token.range;
       }
 
       parser_advance_assert(state, tUIDENT);
-      if (null_position_p(start)) {
-        start = state->current_token.range.start;
-      }
+      name_range = state->current_token.range;
+      param_range.end = state->current_token.range.end;
 
       ID id = INTERN_TOKEN(state, state->current_token);
       name = ID2SYM(id);
 
       parser_insert_id(state, id);
 
-      VALUE loc = rbs_location_pp(state->buffer, &start, &state->current_token.range.end);
-      VALUE param = rbs_ast_decl_module_type_params_param(name, variance, unchecked, loc);
+      VALUE location = rbs_new_location(state->buffer, param_range);
+      rbs_loc *loc = check_location(location);
+      rbs_loc_add_required_child(loc, rb_intern("name"), name_range);
+      rbs_loc_add_optional_child(loc, rb_intern("variance"), variance_range);
+      rbs_loc_add_optional_child(loc, rb_intern("unchecked"), unchecked_range);
+
+      VALUE param = rbs_ast_decl_module_type_params_param(name, variance, unchecked, location);
       rb_funcall(params, rb_intern("add"), 1, param);
 
       if (state->next_token.type == pCOMMA) {

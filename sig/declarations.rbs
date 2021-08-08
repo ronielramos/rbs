@@ -17,7 +17,7 @@ module RBS
           # ^^^^^^^^^          unchecked
           #           ^^^      variance
           #               ^^^^ name
-          type loc = Location::WithChildren[:name, :variance | :unchecked]
+          type loc = Location[:name, :variance | :unchecked]
 
           attr_reader name: Symbol
           attr_reader variance: variance
