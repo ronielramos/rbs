@@ -1356,35 +1356,51 @@ VALUE parse_mixin_member(parserstate *state, bool from_interface, position comme
  * @param[in] instance_only `true` to reject `self.` alias.
  * */
 VALUE parse_alias_member(parserstate *state, bool instance_only, position comment_pos, VALUE annotations) {
-  position start = state->current_token.range.start;
-  comment_pos = nonnull_pos_or(comment_pos, start);
+  range member_range;
+  range keyword_range, new_name_range, old_name_range;
+  range new_kind_range, old_kind_range;
+
+  member_range.start = state->current_token.range.start;
+  keyword_range = state->current_token.range;
+
+  comment_pos = nonnull_pos_or(comment_pos, member_range.start);
   VALUE comment = get_comment(state, comment_pos.line);
 
-  range new_name_range;
   VALUE new_name;
-  range old_name_range;
   VALUE old_name;
-  VALUE location;
   VALUE kind;
 
   if (!instance_only && state->next_token.type == kSELF) {
     kind = ID2SYM(rb_intern("singleton"));
 
+    new_kind_range.start = state->next_token.range.start;
+    new_kind_range.end = state->next_token2.range.end;
     parser_advance_assert(state, kSELF);
     parser_advance_assert(state, pDOT);
     new_name = parse_method_name(state, &new_name_range);
 
+    old_kind_range.start = state->next_token.range.start;
+    old_kind_range.end = state->next_token2.range.end;
     parser_advance_assert(state, kSELF);
     parser_advance_assert(state, pDOT);
     old_name = parse_method_name(state, &old_name_range);
-
-    location = rbs_location_pp(state->buffer, &start, &state->current_token.range.end);
   } else {
     kind = ID2SYM(rb_intern("instance"));
     new_name = parse_method_name(state, &new_name_range);
     old_name = parse_method_name(state, &old_name_range);
-    location = rbs_location_pp(state->buffer, &start, &old_name_range.end);
+
+    new_kind_range = NULL_RANGE;
+    old_kind_range = NULL_RANGE;
   }
+
+  member_range.end = state->current_token.range.end;
+  VALUE location = rbs_new_location(state->buffer, member_range);
+  rbs_loc *loc = check_location(location);
+  rbs_loc_add_required_child(loc, rb_intern("keyword"), keyword_range);
+  rbs_loc_add_required_child(loc, rb_intern("new_name"), new_name_range);
+  rbs_loc_add_required_child(loc, rb_intern("old_name"), old_name_range);
+  rbs_loc_add_optional_child(loc, rb_intern("new_kind"), new_kind_range);
+  rbs_loc_add_optional_child(loc, rb_intern("old_kind"), old_kind_range);
 
   return rbs_ast_members_alias(
     new_name,

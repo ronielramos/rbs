@@ -206,7 +206,7 @@ module RBS
         #                ^^^^^       old_kind
         #                     ^^^    old_name
         #
-        type loc = Location::WithChildren[:keyword | :new_name | :old_name, :new_kind | :old_kind]
+        type loc = Location[:keyword | :new_name | :old_name, :new_kind | :old_kind]
 
         attr_reader new_name: Symbol
         attr_reader old_name: Symbol
