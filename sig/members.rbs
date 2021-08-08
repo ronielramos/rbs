@@ -174,9 +174,9 @@ module RBS
       end
 
       module LocationOnly
-        attr_reader location: Location?
+        attr_reader location: Location[bot, bot]?
 
-        def initialize: (location: Location?) -> void
+        def initialize: (location: Location[bot, bot]?) -> void
 
         include _HashEqual
       end
