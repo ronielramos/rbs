@@ -108,7 +108,7 @@ static VALUE location_s_allocate(VALUE klass) {
   return obj;
 }
 
-static rbs_loc *check_location(VALUE obj) {
+rbs_loc *check_location(VALUE obj) {
   return rb_check_typeddata(obj, &location_type);
 }
 
@@ -241,6 +241,34 @@ static VALUE location_aref(VALUE self, VALUE name) {
   rb_raise(rb_eRuntimeError, "Unknown child name given: %s", RSTRING_PTR(string));
 }
 
+static VALUE location_optional_keys(VALUE self) {
+  VALUE keys = rb_ary_new();
+
+  rbs_loc *loc = check_location(self);
+  rbs_loc_list *list = loc->optionals;
+
+  while (list) {
+    rb_ary_push(keys, ID2SYM(list->name));
+    list = list->next;
+  }
+
+  return keys;
+}
+
+static VALUE location_required_keys(VALUE self) {
+  VALUE keys = rb_ary_new();
+
+  rbs_loc *loc = check_location(self);
+  rbs_loc_list *list = loc->requireds;
+
+  while (list) {
+    rb_ary_push(keys, ID2SYM(list->name));
+    list = list->next;
+  }
+
+  return keys;
+}
+
 void init_location() {
   RBS_Location = rb_define_class_under(RBS, "Location", rb_cObject);
   rb_define_alloc_func(RBS_Location, location_s_allocate);
@@ -254,6 +282,8 @@ void init_location() {
   rb_define_method(RBS_Location, "_add_required_child", location_add_required_child, 3);
   rb_define_method(RBS_Location, "_add_optional_child", location_add_optional_child, 3);
   rb_define_method(RBS_Location, "_add_optional_no_child", location_add_optional_no_child, 1);
+  rb_define_method(RBS_Location, "_optional_keys", location_optional_keys, 0);
+  rb_define_method(RBS_Location, "_required_keys", location_required_keys, 0);
   rb_define_method(RBS_Location, "[]", location_aref, 1);
 }
 

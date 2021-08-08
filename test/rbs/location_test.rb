@@ -43,6 +43,9 @@ abc
       assert_equal "12", location[:num].source
       assert_nil location[:hira]
       assert_equal "abc", location[:alpha].source
+
+      assert_equal [:num, :hira].sort, location.each_optional_key.to_a.sort
+      assert_equal [:alpha], location.each_required_key.to_a
     end
   end
 end

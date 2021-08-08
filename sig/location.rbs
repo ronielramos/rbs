@@ -69,14 +69,22 @@ module RBS
           | (OptionalChildKeys) -> Location[bot, bot]?
           | (Symbol) -> Location[bot, bot]?
 
+    def each_optional_key: () { (Symbol) -> void } -> void
+                         | () -> Enumerator[Symbol, void]
+
+    def each_required_key: () { (Symbol) -> void } -> void
+                         | () -> Enumerator[Symbol, void]
+
     private
 
     def _start_loc: () -> Buffer::loc?
 
     def _end_loc: () -> Buffer::loc?
 
-    def _add_required_child: (Symbol name, Integer start_pos, Integer end_pos) -> void
-    def _add_optional_child: (Symbol name, Integer start_pos, Integer end_pos) -> void
-    def _add_optional_no_child: (Symbol name) -> void
+    def _add_required_child: (RequiredChildKeys name, Integer start_pos, Integer end_pos) -> void
+    def _add_optional_child: (OptionalChildKeys name, Integer start_pos, Integer end_pos) -> void
+    def _add_optional_no_child: (OptionalChildKeys name) -> void
+    def _optional_keys: () -> Array[Symbol]
+    def _required_keys: () -> Array[Symbol]
   end
 end

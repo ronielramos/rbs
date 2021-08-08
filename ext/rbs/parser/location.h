@@ -27,6 +27,8 @@ position rbs_loc_position(int char_pos);
 position rbs_loc_position3(int char_pos, int line, int column);
 
 VALUE rbs_new_location(VALUE buffer, range rg);
+rbs_loc *check_location(VALUE location);
+void rbs_loc_init0(rbs_loc *loc);
 void rbs_loc_init(rbs_loc *loc, VALUE buffer, range rg);
 void rbs_loc_add_required_child(rbs_loc *loc, ID name, range r);
 void rbs_loc_add_optional_child(rbs_loc *loc, ID name, range r);

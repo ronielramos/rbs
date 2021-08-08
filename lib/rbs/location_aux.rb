@@ -86,5 +86,21 @@ module RBS
         _add_optional_no_child(name);
       end
     end
+
+    def each_optional_key(&block)
+      if block
+        _optional_keys.uniq.each(&block)
+      else
+        enum_for(:each_optional_key)
+      end
+    end
+
+    def each_required_key(&block)
+      if block
+        _required_keys.uniq.each(&block)
+      else
+        enum_for(:each_required_key)
+      end
+    end
   end
 end
