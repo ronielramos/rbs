@@ -427,6 +427,14 @@ static token lex_ivar(lexstate *state, position start) {
   if (c == '@') {
     type = tA2IDENT;
     skip(state, c);
+    c = peek(state);
+  }
+
+  if (rb_isalpha(c) || c == '_') {
+    skip(state, c);
+    c = peek(state);
+  } else {
+    rb_raise(rb_eRuntimeError, "Lexer error");
   }
 
   while (rb_isalnum(c) || c == '_') {
@@ -752,6 +760,7 @@ token rbsparser_next_token(lexstate *state) {
       break;
     case '@':
       tok = lex_ivar(state, start);
+      break;
     case '"':
       tok = lex_dqstring(state, start);
       break;

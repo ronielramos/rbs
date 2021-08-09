@@ -124,7 +124,9 @@ void parser_advance_assert(parserstate *state, enum TokenType type) {
   if (state->current_token.type != type) {
     rb_raise(
       rb_eRuntimeError,
-      "Unexpected token: expected=%s, actual=%s",
+      "Unexpected token at line=%d, column=%d: expected=%s, actual=%s",
+      state->current_token.range.start.line,
+      state->current_token.range.start.column,
       token_type_str(type),
       token_type_str(state->current_token.type)
     );

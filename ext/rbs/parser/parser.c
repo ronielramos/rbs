@@ -1426,6 +1426,96 @@ VALUE parse_alias_member(parserstate *state, bool instance_only, position commen
 }
 
 /*
+  variable_member ::= {tAIDENT} `:` <type>
+                    | {kSELF} `.` tAIDENT `:` <type>
+                    | {tA2IDENT} `:` <type>
+*/
+VALUE parse_variable_member(parserstate *state, position comment_pos, VALUE annotations) {
+  range member_range;
+  range name_range, colon_range;
+  range kind_range = NULL_RANGE;
+
+  if (rb_array_len(annotations) > 0) {
+    raise_syntax_error_e(
+      state,
+      state->current_token,
+      "annotation cannot be given to variable members"
+    );
+  }
+
+  member_range.start = state->current_token.range.start;
+  comment_pos = nonnull_pos_or(comment_pos, member_range.start);
+  VALUE comment = get_comment(state, comment_pos.line);
+
+  VALUE klass;
+  VALUE location;
+  VALUE name;
+  VALUE type;
+
+  switch (state->current_token.type)
+  {
+  case tAIDENT:
+    klass = RBS_AST_Members_InstanceVariable;
+
+    name_range = state->current_token.range;
+    name = ID2SYM(INTERN_TOKEN(state, state->current_token));
+
+    parser_advance_assert(state, pCOLON);
+    colon_range = state->current_token.range;
+
+    type = parse_type(state);
+    member_range.end = state->current_token.range.end;
+
+    break;
+
+  case tA2IDENT:
+    klass = RBS_AST_Members_ClassVariable;
+
+    name_range = state->current_token.range;
+    name = ID2SYM(INTERN_TOKEN(state, state->current_token));
+
+    parser_advance_assert(state, pCOLON);
+    colon_range = state->current_token.range;
+
+    type = parse_type(state);
+    member_range.end = state->current_token.range.end;
+
+    break;
+
+  case kSELF:
+    klass = RBS_AST_Members_ClassInstanceVariable;
+
+    kind_range.start = state->current_token.range.start;
+    kind_range.end = state->next_token.range.end;
+
+    parser_advance_assert(state, pDOT);
+    parser_advance_assert(state, tAIDENT);
+
+    name_range = state->current_token.range;
+    name = ID2SYM(INTERN_TOKEN(state, state->current_token));
+
+    parser_advance_assert(state, pCOLON);
+    colon_range = state->current_token.range;
+
+    type = parse_type(state);
+    member_range.end = state->current_token.range.end;
+
+    break;
+
+  default:
+    rb_raise(rb_eRuntimeError, "unexpected token");
+  }
+
+  location = rbs_new_location(state->buffer, member_range);
+  rbs_loc *loc = check_location(location);
+  rbs_loc_add_required_child(loc, rb_intern("name"), name_range);
+  rbs_loc_add_required_child(loc, rb_intern("colon"), colon_range);
+  rbs_loc_add_optional_child(loc, rb_intern("kind"), kind_range);
+
+  return rbs_ast_members_variable(klass, name, type, location, comment);
+}
+
+/*
   interface_members ::= {} ...<interface_member> kEND
 
   interface_member ::= def_member     (instance method only && no overloading)
@@ -1587,6 +1677,8 @@ VALUE parse_module_members(parserstate *state) {
 
     case tAIDENT:
     case tA2IDENT:
+    case kSELF:
+      member = parse_variable_member(state, annot_pos, annotations);
       break;
 
     default:
@@ -1596,6 +1688,8 @@ VALUE parse_module_members(parserstate *state) {
         "module declaration member"
       );
     }
+
+    rb_ary_push(members, member);
   }
 
   return members;

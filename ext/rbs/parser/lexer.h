@@ -3,7 +3,7 @@
 
 enum TokenType {
   NullType,         /* (Nothing) */
-  pEOF,              /* EOF */
+  pEOF,             /* EOF */
 
   pLPAREN,          /* ( */
   pRPAREN,          /* ) */
