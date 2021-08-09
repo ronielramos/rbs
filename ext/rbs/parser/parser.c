@@ -1428,7 +1428,9 @@ VALUE parse_alias_member(parserstate *state, bool instance_only, position commen
 /*
   interface_members ::= {} ...<interface_member> kEND
 
-  interface_member ::= def_member
+  interface_member ::= def_member     (instance method only && no overloading)
+                     | mixin_member   (interface only)
+                     | alias_member   (instance only)
 */
 VALUE parse_interface_members(parserstate *state) {
   VALUE members = rb_ary_new();
@@ -1444,7 +1446,7 @@ VALUE parse_interface_members(parserstate *state) {
     VALUE member;
     switch (state->current_token.type) {
     case kDEF:
-      member = parse_member_def(state, true, true, annot_pos, annotations);
+      member = parse_member_def(state, true, false, annot_pos, annotations);
       break;
 
     case kINCLUDE:
@@ -1545,6 +1547,61 @@ void parse_module_self_types(parserstate *state, VALUE array) {
 }
 
 /*
+  module_members ::= {} ...<module_member> kEND
+
+  module_member ::= def_member
+                  | variable_member
+                  | mixin_member
+                  | `public`
+                  | `private`
+                  | alias_member
+*/
+VALUE parse_module_members(parserstate *state) {
+  VALUE members = rb_ary_new();
+
+  while (state->next_token.type != kEND) {
+    VALUE member;
+    VALUE annotations = rb_ary_new();
+    position annot_pos = NullPosition;
+
+    parse_annotations(state, annotations, &annot_pos);
+
+    parser_advance(state);
+
+    switch (state->current_token.type)
+    {
+    case kDEF:
+      member = parse_member_def(state, false, true, annot_pos, annotations);
+      break;
+
+    case kINCLUDE:
+    case kEXTEND:
+    case kPREPEND:
+      member = parse_mixin_member(state, false, annot_pos, annotations);
+      break;
+
+    case kALIAS:
+      member = parse_alias_member(state, false, annot_pos, annotations);
+      break;
+
+
+    case tAIDENT:
+    case tA2IDENT:
+      break;
+
+    default:
+      raise_syntax_error_e(
+        state,
+        state->current_token,
+        "module declaration member"
+      );
+    }
+  }
+
+  return members;
+}
+
+/*
   module_decl ::= {`module`} module_name module_type_params module_members <kEND>
                 | {`module`} module_name module_type_params `:` module_self_types module_members <kEND>
 */
@@ -1584,7 +1641,7 @@ VALUE parse_module_decl(parserstate *state, position comment_pos, VALUE annotati
     self_types_range = NULL_RANGE;
   }
 
-  VALUE members = rb_ary_new();
+  VALUE members = parse_module_members(state);
 
   parser_advance_assert(state, kEND);
   end_range = state->current_token.range;
