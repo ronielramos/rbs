@@ -132,11 +132,15 @@ bool parser_advance_if(parserstate *state, enum TokenType type) {
 void parser_advance_assert(parserstate *state, enum TokenType type) {
   parser_advance(state);
   if (state->current_token.type != type) {
+    VALUE name = rb_funcall(state->buffer, rb_intern("name"), 0);
+    VALUE str = rb_funcall(name, rb_intern("to_s"), 0);
+
     rb_raise(
       rb_eRuntimeError,
-      "Unexpected token at line=%d, column=%d: expected=%s, actual=%s",
+      "Syntax error at line %d, character %d (%s), expected token %s, but got %s",
       state->current_token.range.start.line,
       state->current_token.range.start.column,
+      StringValueCStr(str),
       token_type_str(type),
       token_type_str(state->current_token.type)
     );

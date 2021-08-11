@@ -74,6 +74,19 @@ typedef enum {
   ALIAS_NAME = 4
 } TypeNameKind;
 
+void parser_advance_no_gap(parserstate *state) {
+  if (state->current_token.range.end.byte_pos == state->next_token.range.start.byte_pos) {
+    parser_advance(state);
+  } else {
+    raise_syntax_error_e(
+      state,
+      state->next_token,
+      "token without gap"
+    );
+  }
+}
+
+
 /*
   type_name ::= {`::`} (tUIDENT `::`)* <tXIDENT>
               | {(tUIDENT `::`)*} <tXIDENT>
@@ -91,17 +104,19 @@ VALUE parse_type_name(parserstate *state, TypeNameKind kind, range *rg) {
 
   if (state->current_token.type == pCOLON2) {
     absolute = Qtrue;
-    parser_advance(state);
+    parser_advance_no_gap(state);
   }
 
-  if (state->current_token.type == tUIDENT) {
-    // may be prefix
-    while (state->next_token.type == pCOLON2) {
-      rb_ary_push(path, ID2SYM(INTERN_TOKEN(state, state->current_token)));
+  while (
+    state->current_token.type == tUIDENT
+    && state->next_token.type == pCOLON2
+    && state->current_token.range.end.byte_pos == state->next_token.range.start.byte_pos
+    && state->next_token.range.end.byte_pos == state->next_token2.range.start.byte_pos
+  ) {
+    rb_ary_push(path, ID2SYM(INTERN_TOKEN(state, state->current_token)));
 
-      parser_advance(state);
-      parser_advance(state);
-    }
+    parser_advance(state);
+    parser_advance(state);
   }
   namespace = rbs_namespace(path, absolute);
 
@@ -245,7 +260,7 @@ static void parse_optional_keyword(parserstate *state, method_params *params) {
 }
 
 /*
-  keywords ::= {} `)`
+  keywords ::= {<>} `)`
              | {} `?` optional_keyword <keywords>
              | {} `**` function_param <keywords>
              | {} required_keyword <keywords>
@@ -290,16 +305,14 @@ static void parse_trailing_params(parserstate *state, method_params *params) {
       return;
     }
 
-    if (state->next_token2.type == pSTAR2) {
+    if (state->next_token.type == pSTAR2) {
       parse_keywords(state, params);
       return;
     }
 
-    if (is_keyword_token(state->next_token.type)) {
-      if (state->next_token2.type == pCOLON) {
-        parse_keywords(state, params);
-        return;
-      }
+    if (is_keyword_token(state->next_token.type) && state->next_token2.type == pCOLON) {
+      parse_keywords(state, params);
+      return;
     }
 
     VALUE param = parse_function_param(state);
@@ -361,7 +374,7 @@ static void parse_optional_params(parserstate *state, method_params *params) {
         parser_advance(state);
       }
     } else {
-      parse_keywords(state, params);
+      parse_trailing_params(state, params);
       return;
     }
   }
@@ -402,6 +415,11 @@ static void parse_required_params(parserstate *state, method_params *params) {
 
     if (state->next_token.type == pQUESTION) {
       parse_optional_params(state, params);
+      return;
+    }
+
+    if (is_keyword_token(state->next_token.type) && state->next_token2.type == pCOLON) {
+      parse_keywords(state, params);
       return;
     }
 
@@ -464,7 +482,7 @@ static void parse_function(parserstate *state, VALUE *function, VALUE *block) {
   }
 
   VALUE required = Qtrue;
-  if (state->next_token.type == pQUESTION && state->next_token.type == pLBRACE) {
+  if (state->next_token.type == pQUESTION && state->next_token2.type == pLBRACE) {
     // Optional block
     required = Qfalse;
     parser_advance(state);
@@ -629,7 +647,7 @@ static VALUE parse_symbol(parserstate *state) {
 }
 
 /*
-  simple ::= {} `(`) type <`)`>
+  simple ::= {} `(` type <`)`>
            | {} <base type>
            | {} <type_name>
            | {} class_instance `[` type_list <`]`>
@@ -790,10 +808,10 @@ static VALUE parse_simple(parserstate *state) {
     return parse_proc_type(state);
   }
   default:
-    rb_raise(
-      rb_eRuntimeError,
-      "Parse error in parse_simple: %s",
-      token_type_str(state->current_token.type)
+    raise_syntax_error_e(
+      state,
+      state->current_token,
+      "simple type"
     );
   }
 }
@@ -2137,8 +2155,7 @@ VALUE parse_decl(parserstate *state) {
   parse_annotations(state, annotations, &annot_pos);
 
   parser_advance(state);
-  switch (state->current_token.type)
-  {
+  switch (state->current_token.type) {
   case tUIDENT:
   case pCOLON2:
     return parse_const_decl(state);

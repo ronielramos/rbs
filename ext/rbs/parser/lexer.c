@@ -272,7 +272,7 @@ static token lex_underscore(lexstate *state, position start) {
 
   c = peek(state);
 
-  if (('A' <= c && c <= 'Z') || c == '_') {
+  if ('A' <= c && c <= 'Z') {
     skipbyte(state, c, 1);
 
     while (true) {
@@ -287,6 +287,21 @@ static token lex_underscore(lexstate *state, position start) {
     }
 
     return next_token(state, tULIDENT, start);
+  } else if (isalpha(c) || c == '_') {
+    skip(state, c);
+
+    while (true) {
+      c = peek(state);
+
+      if (rb_isalnum(c) || c == '_') {
+        // ok
+        skipbyte(state, c, 1);
+      } else {
+        break;
+      }
+    }
+
+    return next_token(state, tLIDENT, start);
   } else {
     return next_token(state, tULIDENT, start);
   }
@@ -392,21 +407,17 @@ static token lex_comment(lexstate *state, enum TokenType type) {
 static token lex_dqstring(lexstate *state, position start) {
   unsigned int c;
 
-  c = peek(state);
+  while (true) {
+    c = peek(state);
+    skip(state, c);
 
-  if (c != '"') {
-    while (true) {
-      c = peek(state);
-      skip(state, c);
-
-      if (c == '\\') {
-        if (peek(state) == '"') {
-          skip(state, c);
-          c = peek(state);
-        }
-      } else if (c == '"') {
-        break;
+    if (c == '\\') {
+      if (peek(state) == '"') {
+        skip(state, c);
+        c = peek(state);
       }
+    } else if (c == '"') {
+      break;
     }
   }
 
@@ -463,19 +474,17 @@ static token lex_sqstring(lexstate *state, position start) {
 
   c = peek(state);
 
-  if (c != '\'') {
-    while (true) {
-      c = peek(state);
-      skip(state, c);
+  while (true) {
+    c = peek(state);
+    skip(state, c);
 
-      if (c == '\\') {
-        if (peek(state) == '\'') {
-          skip(state, c);
-          c = peek(state);
-        }
-      } else if (c == '\'') {
-        break;
+    if (c == '\\') {
+      if (peek(state) == '\'') {
+        skip(state, c);
+        c = peek(state);
       }
+    } else if (c == '\'') {
+      break;
     }
   }
 
