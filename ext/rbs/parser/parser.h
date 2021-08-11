@@ -36,6 +36,11 @@ VALUE parse_signature(parserstate *state);
 
 void rbs_unescape_string(VALUE string);
 
+/*
+Unquote and unescape given string.
+*/
+VALUE rbs_unquote_string(parserstate *state, range rg, int offset_bytes);
+
 id_table *parser_push_typevar_table(parserstate *state, bool reset);
 void parser_insert_typevar(parserstate *state, ID id);
 bool parser_typevar_member(parserstate *state, ID id);

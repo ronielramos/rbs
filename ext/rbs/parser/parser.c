@@ -557,6 +557,8 @@ VALUE parse_record_attributes(parserstate *state) {
       switch (state->next_token.type)
       {
       case tSYMBOL:
+      case tSQSYMBOL:
+      case tDQSYMBOL:
       case tSQSTRING:
       case tDQSTRING:
       case tINTEGER:
@@ -598,29 +600,26 @@ static VALUE parse_symbol(parserstate *state) {
   int offset_bytes = rb_enc_codelen(':', enc);
   int bytes = token_bytes(state->current_token) - offset_bytes;
 
-  unsigned int first_char = rb_enc_mbc_to_codepoint(
-    RSTRING_PTR(string) + state->current_token.range.start.byte_pos + offset_bytes,
-    RSTRING_END(string),
-    enc
-  );
-
   VALUE literal;
 
-  if (first_char == '"' || first_char == '\'') {
-    int bs = rb_enc_codelen(first_char, enc);
-    offset_bytes += bs;
-    bytes -= 2 * bs;
-
-    char *buffer = peek_token(state->lexstate, state->current_token);
-    VALUE string = rb_enc_str_new(buffer+offset_bytes, bytes, enc);
-
-    if (first_char == '\"') {
-      rbs_unescape_string(string);
-    }
-    literal = rb_funcall(string, rb_intern("to_sym"), 0);
-  } else {
+  switch (state->current_token.type)
+  {
+  case tSYMBOL: {
     char *buffer = peek_token(state->lexstate, state->current_token);
     literal = ID2SYM(rb_intern3(buffer+offset_bytes, bytes, enc));
+    break;
+  }
+  case tDQSYMBOL:
+  case tSQSYMBOL: {
+    literal = rb_funcall(
+      rbs_unquote_string(state, state->current_token.range, offset_bytes),
+      rb_intern("to_sym"),
+      0
+    );
+    break;
+  }
+  default:
+    rb_raise(rb_eRuntimeError, "unexpected");
   }
 
   return rbs_literal(
@@ -679,22 +678,17 @@ static VALUE parse_simple(parserstate *state) {
     return rbs_literal(Qtrue, rbs_location_current_token(state));
   case kFALSE:
     return rbs_literal(Qfalse, rbs_location_current_token(state));
-  case tSQSTRING: {
-    VALUE literal = string_of_loc(state, state->current_token.range.start, state->current_token.range.end);
-    return rbs_literal(
-      literal,
-      rbs_location_current_token(state)
-    );
-  }
+  case tSQSTRING:
   case tDQSTRING: {
-    VALUE literal = string_of_loc(state, state->current_token.range.start, state->current_token.range.end);
-    rbs_unescape_string(literal);
+    VALUE literal = rbs_unquote_string(state, state->current_token.range, 0);
     return rbs_literal(
       literal,
       rbs_location_current_token(state)
     );
   }
-  case tSYMBOL: {
+  case tSYMBOL:
+  case tSQSYMBOL:
+  case tDQSYMBOL: {
     return parse_symbol(state);
   }
   case tUIDENT: {

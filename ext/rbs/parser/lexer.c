@@ -84,6 +84,8 @@ static const char *RBS_TOKENTYPE_NAMES[] = {
   "tSQSTRING",        /* Single quoted string */
   "tINTEGER",         /* Integer */
   "tSYMBOL",          /* Symbol */
+  "tDQSYMBOL",
+  "tSQSYMBOL",
   "tANNOTATION",      /* Annotation */
 };
 
@@ -591,11 +593,11 @@ static token lex_colon_symbol(lexstate *state, position start) {
     case '\'':
       skip(state, '\'');
       lex_sqstring(state, start);
-      return next_token(state, tSYMBOL, start);
+      return next_token(state, tSQSYMBOL, start);
     case '"':
       skip(state, '"');
       lex_dqstring(state, start);
-      return next_token(state, tSYMBOL, start);
+      return next_token(state, tDQSYMBOL, start);
     default:
       if (rb_isalpha(c[0]) || c[0] == '_') {
         lex_ident(state, start, NullType);

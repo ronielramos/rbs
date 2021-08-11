@@ -75,6 +75,8 @@ enum TokenType {
   tSQSTRING,        /* Single quoted string */
   tINTEGER,         /* Integer */
   tSYMBOL,          /* Symbol */
+  tDQSYMBOL,        /* Double quoted symbol */
+  tSQSYMBOL,        /* Single quoted symbol */
   tANNOTATION,      /* Annotation */
 };
 

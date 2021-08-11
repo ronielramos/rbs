@@ -414,4 +414,11 @@ end
       end
     end
   end
+
+  def test_parse_type
+    assert_equal "hello", RBS::Parser.parse_type(buffer('"hello"')).literal
+    assert_equal "hello", RBS::Parser.parse_type(buffer("'hello'")).literal
+    assert_equal :hello, RBS::Parser.parse_type(buffer(':"hello"')).literal
+    assert_equal :hello, RBS::Parser.parse_type(buffer(':hello')).literal
+  end
 end
