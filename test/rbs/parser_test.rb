@@ -197,4 +197,18 @@ end
       end
     end
   end
+
+  def test_module_decl_nested
+    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+module Foo
+  type foo = bar
+
+  BAZ: Intger
+end
+    RBS
+      decls[0].tap do |decl|
+        assert_instance_of RBS::AST::Declarations::Module, decl
+      end
+    end
+  end
 end
