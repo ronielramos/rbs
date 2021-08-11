@@ -1215,6 +1215,8 @@ VALUE parse_member_def(parserstate *state, bool instance_only, bool accept_overl
 
   parser_advance_assert(state, pCOLON);
 
+  parser_push_typevar_table(state, kind != INSTANCE_KIND);
+
   bool loop = true;
   while (loop) {
     switch (state->next_token.type) {
@@ -1255,6 +1257,8 @@ VALUE parse_member_def(parserstate *state, bool instance_only, bool accept_overl
       loop = false;
     }
   }
+
+  parser_pop_typevar_table(state);
 
   VALUE k;
   switch (kind) {
@@ -1322,6 +1326,7 @@ VALUE parse_mixin_member(parserstate *state, bool from_interface, position comme
   range name_range;
   range keyword_range;
   range args_range = NULL_RANGE;
+  bool reset_typevar_scope;
 
   member_range.start = state->current_token.range.start;
   comment_pos = nonnull_pos_or(comment_pos, member_range.start);
@@ -1333,12 +1338,15 @@ VALUE parse_mixin_member(parserstate *state, bool from_interface, position comme
   {
   case kINCLUDE:
     klass = RBS_AST_Members_Include;
+    reset_typevar_scope = false;
     break;
   case kEXTEND:
     klass = RBS_AST_Members_Extend;
+    reset_typevar_scope = true;
     break;
   case kPREPEND:
     klass = RBS_AST_Members_Prepend;
+    reset_typevar_scope = false;
     break;
   default:
     rb_raise(rb_eRuntimeError, "Unexpected");
@@ -1354,6 +1362,8 @@ VALUE parse_mixin_member(parserstate *state, bool from_interface, position comme
     }
   }
 
+  parser_push_typevar_table(state, reset_typevar_scope);
+
   VALUE name;
   VALUE args = rb_ary_new();
   class_instance_name(
@@ -1361,6 +1371,8 @@ VALUE parse_mixin_member(parserstate *state, bool from_interface, position comme
     from_interface ? INTERFACE_NAME : (INTERFACE_NAME | CLASS_NAME),
     &name, args, &name_range, &args_range
   );
+
+  parser_pop_typevar_table(state);
 
   member_range.end = state->current_token.range.end;
 
@@ -1497,7 +1509,9 @@ VALUE parse_variable_member(parserstate *state, position comment_pos, VALUE anno
     parser_advance_assert(state, pCOLON);
     colon_range = state->current_token.range;
 
+    parser_push_typevar_table(state, true);
     type = parse_type(state);
+    parser_pop_typevar_table(state);
     member_range.end = state->current_token.range.end;
 
     break;
@@ -1517,7 +1531,9 @@ VALUE parse_variable_member(parserstate *state, position comment_pos, VALUE anno
     parser_advance_assert(state, pCOLON);
     colon_range = state->current_token.range;
 
+    parser_push_typevar_table(state, true);
     type = parse_type(state);
+    parser_pop_typevar_table(state);
     member_range.end = state->current_token.range.end;
 
     break;
@@ -1583,6 +1599,7 @@ VALUE parse_attribute_member(parserstate *state, position comment_pos, VALUE ann
   range keyword_range, name_range, colon_range;
   range kind_range = NULL_RANGE, ivar_range = NULL_RANGE, ivar_name_range = NULL_RANGE;
 
+  InstanceSingletonKind is_kind;
   VALUE klass;
   VALUE kind;
   VALUE attr_name;
@@ -1612,7 +1629,8 @@ VALUE parse_attribute_member(parserstate *state, position comment_pos, VALUE ann
     rb_raise(rb_eRuntimeError, "Unexpected token");
   }
 
-  if (parse_instance_singleton_kind(state, false, &kind_range) == INSTANCE_KIND) {
+  is_kind = parse_instance_singleton_kind(state, false, &kind_range);
+  if (is_kind == INSTANCE_KIND) {
     kind = ID2SYM(rb_intern("instance"));
   } else {
     kind = ID2SYM(rb_intern("singleton"));
@@ -1640,7 +1658,9 @@ VALUE parse_attribute_member(parserstate *state, position comment_pos, VALUE ann
   parser_advance_assert(state, pCOLON);
   colon_range = state->current_token.range;
 
+  parser_push_typevar_table(state, is_kind == SINGLETON_KIND);
   type = parse_type(state);
+  parser_pop_typevar_table(state);
   member_range.end = state->current_token.range.end;
 
   location = rbs_new_location(state->buffer, member_range);

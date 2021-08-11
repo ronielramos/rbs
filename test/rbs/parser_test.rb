@@ -235,4 +235,118 @@ end
       end
     end
   end
+
+  def test_module_type_var_ivar
+    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+module Foo[A]
+  @x: A
+  @@x: A
+  self.@x: A
+end
+    RBS
+      decls[0].tap do |decl|
+        assert_instance_of RBS::AST::Declarations::Module, decl
+
+        decl.members[0].tap do |member|
+          assert_instance_of RBS::AST::Members::InstanceVariable, member
+          assert_instance_of RBS::Types::Variable, member.type
+        end
+
+        decl.members[1].tap do |member|
+          assert_instance_of RBS::AST::Members::ClassVariable, member
+          assert_instance_of RBS::Types::ClassInstance, member.type
+        end
+
+        decl.members[2].tap do |member|
+          assert_instance_of RBS::AST::Members::ClassInstanceVariable, member
+          assert_instance_of RBS::Types::ClassInstance, member.type
+        end
+      end
+    end
+  end
+
+  def test_module_type_var_attr
+    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+module Foo[A]
+  attr_reader foo: A
+  attr_writer self.bar: A
+end
+    RBS
+      decls[0].tap do |decl|
+        assert_instance_of RBS::AST::Declarations::Module, decl
+
+        decl.members[0].tap do |member|
+          assert_instance_of RBS::AST::Members::AttrReader, member
+          assert_instance_of RBS::Types::Variable, member.type
+        end
+
+        decl.members[1].tap do |member|
+          assert_instance_of RBS::AST::Members::AttrWriter, member
+          assert_instance_of RBS::Types::ClassInstance, member.type
+        end
+      end
+    end
+  end
+
+  def test_module_type_var_method
+    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+module Foo[A]
+  def foo: () -> A
+
+  def self.bar: () -> A
+
+  def self?.baz: () -> A
+end
+    RBS
+      decls[0].tap do |decl|
+        assert_instance_of RBS::AST::Declarations::Module, decl
+
+        decl.members[0].tap do |member|
+          assert_instance_of RBS::AST::Members::MethodDefinition, member
+          assert_instance_of RBS::Types::Variable, member.types[0].type.return_type
+        end
+
+        decl.members[1].tap do |member|
+          assert_instance_of RBS::AST::Members::MethodDefinition, member
+          assert_instance_of RBS::Types::ClassInstance, member.types[0].type.return_type
+        end
+
+        decl.members[2].tap do |member|
+          assert_instance_of RBS::AST::Members::MethodDefinition, member
+          assert_instance_of RBS::Types::ClassInstance, member.types[0].type.return_type
+        end
+      end
+    end
+  end
+
+  def test_module_type_var_mixin
+    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+module Foo[A]
+  include X[A]
+
+  extend X[A]
+
+  prepend X[A]
+end
+    RBS
+      decls[0].tap do |decl|
+        assert_instance_of RBS::AST::Declarations::Module, decl
+
+        decl.members[0].tap do |member|
+          assert_instance_of RBS::AST::Members::Include, member
+          assert_instance_of RBS::Types::Variable, member.args[0]
+        end
+
+        decl.members[1].tap do |member|
+          assert_instance_of RBS::AST::Members::Extend, member
+          assert_instance_of RBS::Types::ClassInstance, member.args[0]
+        end
+
+        decl.members[2].tap do |member|
+          assert_instance_of RBS::AST::Members::Prepend, member
+          assert_instance_of RBS::Types::Variable, member.args[0]
+        end
+      end
+    end
+  end
 end
