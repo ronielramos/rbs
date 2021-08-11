@@ -53,20 +53,16 @@ static VALUE string_of_loc(parserstate *state, position start, position end) {
   );
 }
 
-static VALUE string_of_bytepos(parserstate *state, int byte_start, int byte_end) {
-  return rb_enc_str_new(
-    RSTRING_PTR(state->lexstate->string) + byte_start,
-      byte_end - byte_start,
-      rb_enc_get(state->lexstate->string)
-  );
-}
-
 static void __attribute__((noreturn)) raise_syntax_error_e(parserstate *state, token tok, const char *expected) {
+  VALUE name = rb_funcall(state->buffer, rb_intern("name"), 0);
+  VALUE str = rb_funcall(name, rb_intern("to_s"), 0);
+
   rb_raise(
     rb_eRuntimeError,
-    "Syntax error at line %d char %d, expected %s, but got %s",
+    "Syntax error at line %d char %d (%s), expected %s, but got %s",
     tok.range.start.line,
     tok.range.start.column,
+    StringValueCStr(str),
     expected,
     token_type_str(tok.type)
   );
@@ -168,10 +164,8 @@ static bool is_keyword_token(enum TokenType type) {
   case tLIDENT:
   case tUIDENT:
   case tULIDENT:
-  case kSINGLETON:
-  case kSELF:
-  case kINSTANCE:
-  case kVOID:
+  case tQIDENT:
+  KEYWORD_CASES
     return true;
   default:
     return false;
@@ -686,7 +680,7 @@ static VALUE parse_simple(parserstate *state) {
   case kFALSE:
     return rbs_literal(Qfalse, rbs_location_current_token(state));
   case tSQSTRING: {
-    VALUE literal = string_of_bytepos(state, state->current_token.range.start.byte_pos + 1, state->current_token.range.end.byte_pos - 1);
+    VALUE literal = string_of_loc(state, state->current_token.range.start, state->current_token.range.end);
     return rbs_literal(
       literal,
       rbs_location_current_token(state)
@@ -1161,6 +1155,16 @@ VALUE parse_method_name(parserstate *state, range *range) {
   case tBANGIDENT:
   case tEQIDENT:
   case tQIDENT:
+    *range = state->current_token.range;
+    return ID2SYM(INTERN_TOKEN(state, state->current_token));
+
+  case pBAR:
+  case pHAT:
+  case pAMP:
+  case pSTAR:
+  case pSTAR2:
+  case pLT:
+  case tOPERATOR:
     *range = state->current_token.range;
     return ID2SYM(INTERN_TOKEN(state, state->current_token));
 
@@ -2116,11 +2120,14 @@ VALUE parse_nested_decl(parserstate *state, const char *nested_in, position anno
   case kMODULE:
     decl = parse_module_decl(state, annot_pos, annotations);
     break;
+  case kCLASS:
+    decl = parse_class_decl(state, annot_pos, annotations);
+    break;
   default:
     raise_syntax_error_e(
       state,
       state->current_token,
-      "%s declaration member"
+      "class/module declaration member"
     );
   }
 

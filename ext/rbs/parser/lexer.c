@@ -14,38 +14,28 @@ static const char *RBS_TOKENTYPE_NAMES[] = {
   "NullType",
   "pEOF",
 
-  "pLPAREN",
-  "pRPAREN",
-  "pCOLON",
-  "pCOLON2",
-  "pLBRACKET",
-  "pRBRACKET",
-  "pLBRACE",
-  "pRBRACE",
-  "pHAT",
-  "pARROW",
-  "pFATARROW",
-  "pCOMMA",
-  "pBAR",
-  "pAMP",
-  "pSTAR",
-  "pSTAR2",
-  "pDOT",
-  "pDOT3",
-  "pMINUS",
-  "pPLUS",
-  "pSLASH",
-  "pEQ",              /* = */
-  "pEQ2",
-  "pEQ3",
-  "pEQT",
-  "pBANG",
-  "pQUESTION",
-  "pPERCENT",
+  "pLPAREN",          /* ( */
+  "pRPAREN",          /* ) */
+  "pCOLON",           /* : */
+  "pCOLON2",          /* :: */
+  "pLBRACKET",        /* [ */
+  "pRBRACKET",        /* ] */
+  "pLBRACE",          /* { */
+  "pRBRACE",          /* } */
+  "pHAT",             /* ^ */
+  "pARROW",           /* -> */
+  "pFATARROW",        /* => */
+  "pCOMMA",           /* , */
+  "pBAR",             /* | */
+  "pAMP",             /* & */
+  "pSTAR",            /* * */
+  "pSTAR2",           /* ** */
+  "pDOT",             /* . */
+  "pDOT3",            /* ... */
+  "pBANG",            /* ! */
+  "pQUESTION",        /* ? */
   "pLT",              /* < */
-  "pLTLT",            /* << */
-  "pGT",              /* > */
-  "pGTGT",            /* >> */
+  "pEQ",              /* = */
 
   "kBOOL",            /* bool */
   "kBOT",             /* bot */
@@ -85,6 +75,7 @@ static const char *RBS_TOKENTYPE_NAMES[] = {
   "tBANGIDENT",
   "tEQIDENT",
   "tQIDENT",          /* Quoted identifier */
+  "tOPERATOR",        /* Operator identifier */
 
   "tCOMMENT",
   "tLINECOMMENT",
@@ -171,6 +162,20 @@ void skip(lexstate *state, unsigned int c) {
 }
 
 /*
+  1. Peek one character from state
+  2. If read characetr equals to given `c`, skip the character and return true.
+  3. Return false otherwise.
+*/
+static bool skip_next_character_if(lexstate *state, unsigned int c) {
+  if (peek(state) == c) {
+    skip(state, c);
+    return true;
+  } else {
+    return false;
+  }
+}
+
+/*
    ... 0 1 ...
         ^           current
           ^         current (return)
@@ -192,32 +197,44 @@ static token lex_number(lexstate *state, position start) {
 }
 
 /*
-  ... - > ...
-     ^              start
-       ^            current
-         ^          current (after)
-
-  ... - 1 ...
-     ^              start
-       ^            current
-       ^            current (lex_number)
-
-  ... - x ...
-     ^              start
-       ^            current
-       ^            current (after)
+  lex_hyphen ::=  -    (tOPERATOR)
+                 * ^$
+               |  - @  (tOPERATOR)
+                 * ^ $
+               |  - >  (pARROW)
+                 * ^ $
+               |  - 1  (tINTEGER)
+                 * ^ >lex_number
 */
 static token lex_hyphen(lexstate* state, position start) {
-  unsigned int c = peek(state);
-
-  if (c == '>') {
-    skipbyte(state, c, 1);
+  if (skip_next_character_if(state, '>')) {
     return next_token(state, pARROW, start);
-  } else if (rb_isdigit(c)) {
-    skipbyte(state, c, 1);
+  } else if (skip_next_character_if(state, '@')) {
+    return next_token(state, tOPERATOR, start);
+  } else {
+    unsigned int c = peek(state);
+
+    if (rb_isdigit(c)) {
+      skipbyte(state, c, 1);
+      return lex_number(state, start);
+    } else {
+      return next_token(state, tOPERATOR, start);
+    }
+  }
+}
+
+/*
+  lex_plus ::= +
+             | + @
+             | + \d
+*/
+static token lex_plus(lexstate *state, position start) {
+  if (skip_next_character_if(state, '@')) {
+    return next_token(state, tOPERATOR, start);
+  } else if (rb_isdigit(peek(state))) {
     return lex_number(state, start);
   } else {
-    return next_token(state, pMINUS, start);
+    return next_token(state, tOPERATOR, start);
   }
 }
 
@@ -236,37 +253,16 @@ static token lex_dot(lexstate *state, position start, int count) {
 }
 
 static token lex_eq(lexstate *state, position start, int count) {
-  unsigned int c = peek(state);
-
-  switch (count) {
-  case 1:
-    switch (c) {
-    case '=':
-      skip(state, c);
-      return lex_eq(state, start, 2);
-      break;
-    case '>':
-      skipbyte(state, c, 1);
-      return next_token(state, pFATARROW, start);
-    default:
-      return next_token(state, pEQ, start);
-    }
-
-    break;
-
-  case 2:
-    switch (c) {
-    case '=':
-      skipbyte(state, c, 1);
-      return next_token(state, pEQ3, start);
-    default:
-      return next_token(state, pEQ2, start);
-    }
-
-    break;
+  if (skip_next_character_if(state, '=')) {
+    skip_next_character_if(state, '=');
+    return next_token(state, tOPERATOR, start);
+  } else if (skip_next_character_if(state, '~')) {
+    return next_token(state, tOPERATOR, start);
+  } else if (skip_next_character_if(state, '>')) {
+    return next_token(state, pFATARROW, start);
+  } else {
+    return next_token(state, pEQ, start);
   }
-
-  return NullToken;
 }
 
 static token lex_underscore(lexstate *state, position start) {
@@ -637,47 +633,30 @@ static token lex_colon(lexstate *state, position start) {
 }
 
 /*
-  ... `<` ...
-     ^           start
-         ^       current
-         ^       current (exit)
-
-  ... `<` `<` ...
-     ^               start
-         ^           current
-             ^       current (exit)
+  lex_lt ::= <       (pLT)
+           | < <     (tOPERATOR)
+           | < =     (tOPERATOR)
+           | < = >   (tOPERATOR)
 */
 static token lex_lt(lexstate *state, position start) {
-  unsigned int c = peek(state);
-
-  if (c == '<') {
-    skip(state, c);
-    return next_token(state, pLTLT, start);
+  if (skip_next_character_if(state, '<')) {
+    return next_token(state, tOPERATOR, start);
+  } else if (skip_next_character_if(state, '=')) {
+    skip_next_character_if(state, '>');
+    return next_token(state, tOPERATOR, start);
   } else {
     return next_token(state, pLT, start);
   }
 }
 
 /*
-  ... `>` ...
-     ^           start
-         ^       current
-         ^       current (exit)
-
-  ... `>` `>` ...
-     ^               start
-         ^           current
-             ^       current (exit)
+  lex_gt ::= >
+           | > =
+           | > >
 */
 static token lex_gt(lexstate *state, position start) {
-  unsigned int c = peek(state);
-
-  if (c == '>') {
-    skip(state, c);
-    return next_token(state, pGTGT, start);
-  } else {
-    return next_token(state, pGT, start);
-  }
+  skip_next_character_if(state, '=') || skip_next_character_if(state, '>');
+  return next_token(state, tOPERATOR, start);
 }
 
 /*
@@ -694,7 +673,7 @@ static token lex_percent(lexstate *state, position start) {
   peekn(state, cs, 2);
 
   if (cs[0] != 'a') {
-    return next_token(state, pPERCENT, start);
+    return next_token(state, tOPERATOR, start);
   }
 
   switch (cs[1])
@@ -715,7 +694,7 @@ static token lex_percent(lexstate *state, position start) {
     end_char = '>';
     break;
   default:
-    return next_token(state, pPERCENT, start);
+    return next_token(state, tOPERATOR, start);
   }
 
   skip(state, cs[0]);
@@ -736,6 +715,65 @@ static token lex_percent(lexstate *state, position start) {
   }
 
   return NullToken;
+}
+
+/*
+  bracket ::= [       (pLBRACKET)
+             * ^
+            | [ ]     (tOPERATOR)
+             * ^ $
+            | [ ] =   (tOPERATOR)
+             * ^   $
+*/
+static token lex_bracket(lexstate *state, position start) {
+  if (skip_next_character_if(state, ']')) {
+    skip_next_character_if(state, '=');
+    return next_token(state, tOPERATOR, start);
+  } else {
+    return next_token(state, pLBRACKET, start);
+  }
+}
+
+/*
+  bracket ::= *
+            | * *
+*/
+static token lex_star(lexstate *state, position start) {
+  if (skip_next_character_if(state, '*')) {
+    return next_token(state, pSTAR2, start);
+  } else {
+    return next_token(state, pSTAR, start);
+  }
+}
+
+/*
+  bang ::= !
+         | ! =
+         | ! ~
+*/
+static token lex_bang(lexstate *state, position start) {
+  skip_next_character_if(state, '=') || skip_next_character_if(state, '~');
+  return next_token(state, tOPERATOR, start);
+}
+
+/*
+  backquote ::= `            (tOPERATOR)
+              | `[^ :][^`]`  (tQIDENT)
+*/
+static token lex_backquote(lexstate *state, position start) {
+  unsigned char c = peek(state);
+
+  if (c == ' ' || c == ':') {
+    return next_token(state, tOPERATOR, start);
+  } else {
+    skip(state, c);
+    while (c != '`') {
+      c = peek(state);
+      skip(state, c);
+    }
+
+    return next_token(state, tOPERATOR, start);
+  }
 }
 
 token rbsparser_next_token(lexstate *state) {
@@ -771,15 +809,40 @@ token rbsparser_next_token(lexstate *state) {
     case '\0': tok = next_token(state, pEOF, start);
     ONE_CHAR_PATTERN('(', pLPAREN);
     ONE_CHAR_PATTERN(')', pRPAREN);
-    ONE_CHAR_PATTERN('[', pLBRACKET);
     ONE_CHAR_PATTERN(']', pRBRACKET);
     ONE_CHAR_PATTERN('{', pLBRACE);
     ONE_CHAR_PATTERN('}', pRBRACE);
-    ONE_CHAR_PATTERN('^', pHAT);
     ONE_CHAR_PATTERN(',', pCOMMA);
     ONE_CHAR_PATTERN('|', pBAR);
+    ONE_CHAR_PATTERN('^', pHAT);
     ONE_CHAR_PATTERN('&', pAMP);
     ONE_CHAR_PATTERN('?', pQUESTION);
+    ONE_CHAR_PATTERN('/', tOPERATOR);
+    ONE_CHAR_PATTERN('~', tOPERATOR);
+    case '[':
+      tok = lex_bracket(state, start);
+      break;
+    case '-':
+      tok = lex_hyphen(state, start);
+      break;
+    case '+':
+      tok = lex_plus(state, start);
+      break;
+    case '*':
+      tok = lex_star(state, start);
+      break;
+    case '<':
+      tok = lex_lt(state, start);
+      break;
+    case '=':
+      tok = lex_eq(state, start, 1);
+      break;
+    case '>':
+      tok = lex_gt(state, start);
+      break;
+    case '!':
+      tok = lex_bang(state, start);
+      break;
     case '#':
       if (state->first_token_of_line) {
         tok = lex_comment(state, tLINECOMMENT);
@@ -790,20 +853,8 @@ token rbsparser_next_token(lexstate *state) {
     case ':':
       tok = lex_colon(state, start);
       break;
-    case '-':
-      tok = lex_hyphen(state, start);
-      break;
-    case '+':
-      if (rb_isdigit(peek(state))) {
-        return lex_number(state, start);
-      } else {
-        return next_token(state, pPLUS, start);
-      }
     case '.':
       tok = lex_dot(state, start, 1);
-      break;
-    case '=':
-      tok = lex_eq(state, start, 1);
       break;
     case '_':
       tok = lex_underscore(state, start);
@@ -823,11 +874,8 @@ token rbsparser_next_token(lexstate *state) {
     case '%':
       tok = lex_percent(state, start);
       break;
-    case '<':
-      tok = lex_lt(state, start);
-      break;
-    case '>':
-      tok = lex_gt(state, start);
+    case '`':
+      tok = lex_backquote(state, start);
       break;
     default:
       if (rb_isalpha(c) && rb_isupper(c)) {

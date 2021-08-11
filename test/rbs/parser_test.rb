@@ -375,4 +375,43 @@ end
       end
     end
   end
+
+  def test_method_name
+    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+      class Foo
+        def |: () -> void
+        def ^: () -> void
+        def &: () -> void
+        def <=>: () -> void
+        def ==: () -> void
+        def ===: () -> void
+        def =~: () -> void
+        def >: () -> void
+        def >=: () -> void
+        def <: () -> void
+        def <=: () -> void
+        def <<: () -> void
+        def >>: () -> void
+        def +: () -> void
+        def -: () -> void
+        def *: () -> void
+        def /: () -> void
+        def %: () -> void
+        def **: () -> void
+        def ~: () -> void
+        def +@: () -> void
+        def -@: () -> void
+        def []: () -> void
+        def []=: () -> void
+        def !: () -> void
+        def !=: () -> void
+        def !~: () -> void
+        def `: () -> void
+      end
+          RBS
+      decls[0].tap do |decl|
+        assert_instance_of RBS::AST::Declarations::Class, decl
+      end
+    end
+  end
 end

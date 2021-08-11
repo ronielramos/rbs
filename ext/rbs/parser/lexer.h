@@ -23,20 +23,10 @@ enum TokenType {
   pSTAR2,           /* ** */
   pDOT,             /* . */
   pDOT3,            /* ... */
-  pMINUS,           /* - */
-  pPLUS,            /* + */
-  pSLASH,           /* / */
-  pEQ,              /* = */
-  pEQ2,             /* == */
-  pEQ3,             /* === */
-  pEQT,             /* =~ */
   pBANG,            /* ! */
   pQUESTION,        /* ? */
-  pPERCENT,         /* % */
   pLT,              /* < */
-  pLTLT,            /* << */
-  pGT,              /* > */
-  pGTGT,            /* >> */
+  pEQ,              /* = */
 
   kBOOL,            /* bool */
   kBOT,             /* bot */
@@ -76,6 +66,7 @@ enum TokenType {
   tBANGIDENT,       /* Identifiers ending with `!` */
   tEQIDENT,         /* Identifiers ending with `=` */
   tQIDENT,          /* Quoted identifier */
+  tOPERATOR,         /* Operator identifier */
 
   tCOMMENT,         /* Comment */
   tLINECOMMENT,     /* Comment of all line */
