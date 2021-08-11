@@ -1785,6 +1785,8 @@ void parse_module_self_types(parserstate *state, VALUE array) {
   }
 }
 
+VALUE parse_nested_decl(parserstate *state, const char *nested_in, position annot_pos, VALUE annotations);
+
 /*
   module_members ::= {} ...<module_member> kEND
 
@@ -1843,11 +1845,8 @@ VALUE parse_module_members(parserstate *state) {
       break;
 
     default:
-      raise_syntax_error_e(
-        state,
-        state->current_token,
-        "module declaration member"
-      );
+      member = parse_nested_decl(state, "module", annot_pos, annotations);
+      break;
     }
 
     rb_ary_push(members, member);
@@ -1922,6 +1921,33 @@ VALUE parse_module_decl(parserstate *state, position comment_pos, VALUE annotati
     location,
     comment
   );
+}
+
+/*
+  nested_decl ::= {<const_decl>}
+                | {<class_decl>}
+                | {<interface_decl>}
+                | {<module_decl>}
+                | {<class_decl>}
+*/
+VALUE parse_nested_decl(parserstate *state, const char *nested_in, position annot_pos, VALUE annotations) {
+  switch (state->current_token.type) {
+  case tUIDENT:
+  case pCOLON2:
+    return parse_const_decl(state);
+  case kTYPE:
+    return parse_type_decl(state, annot_pos, annotations);
+  case kINTERFACE:
+    return parse_interface_decl(state, annot_pos, annotations);
+  case kMODULE:
+    return parse_module_decl(state, annot_pos, annotations);
+  default:
+    raise_syntax_error_e(
+      state,
+      state->current_token,
+      "%s declaration member"
+    );
+  }
 }
 
 VALUE parse_decl(parserstate *state) {
