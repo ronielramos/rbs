@@ -33,6 +33,10 @@ enum TokenType {
   pBANG,            /* ! */
   pQUESTION,        /* ? */
   pPERCENT,         /* % */
+  pLT,              /* < */
+  pLTLT,            /* << */
+  pGT,              /* > */
+  pGTGT,            /* >> */
 
   kBOOL,            /* bool */
   kBOT,             /* bot */

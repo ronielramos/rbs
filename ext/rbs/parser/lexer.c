@@ -42,6 +42,10 @@ static const char *RBS_TOKENTYPE_NAMES[] = {
   "pBANG",
   "pQUESTION",
   "pPERCENT",
+  "pLT",              /* < */
+  "pLTLT",            /* << */
+  "pGT",              /* > */
+  "pGTGT",            /* >> */
 
   "kBOOL",            /* bool */
   "kBOT",             /* bot */
@@ -633,6 +637,50 @@ static token lex_colon(lexstate *state, position start) {
 }
 
 /*
+  ... `<` ...
+     ^           start
+         ^       current
+         ^       current (exit)
+
+  ... `<` `<` ...
+     ^               start
+         ^           current
+             ^       current (exit)
+*/
+static token lex_lt(lexstate *state, position start) {
+  unsigned int c = peek(state);
+
+  if (c == '<') {
+    skip(state, c);
+    return next_token(state, pLTLT, start);
+  } else {
+    return next_token(state, pLT, start);
+  }
+}
+
+/*
+  ... `>` ...
+     ^           start
+         ^       current
+         ^       current (exit)
+
+  ... `>` `>` ...
+     ^               start
+         ^           current
+             ^       current (exit)
+*/
+static token lex_gt(lexstate *state, position start) {
+  unsigned int c = peek(state);
+
+  if (c == '>') {
+    skip(state, c);
+    return next_token(state, pGTGT, start);
+  } else {
+    return next_token(state, pGT, start);
+  }
+}
+
+/*
     ... `%` `a` `{` ... `}` ...
        ^                         start
            ^                     current
@@ -772,8 +820,14 @@ token rbsparser_next_token(lexstate *state) {
     case '\'':
       tok = lex_sqstring(state, start);
       break;
-    case  '%':
+    case '%':
       tok = lex_percent(state, start);
+      break;
+    case '<':
+      tok = lex_lt(state, start);
+      break;
+    case '>':
+      tok = lex_gt(state, start);
       break;
     default:
       if (rb_isalpha(c) && rb_isupper(c)) {

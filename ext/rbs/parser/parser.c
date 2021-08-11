@@ -1997,6 +1997,100 @@ VALUE parse_module_decl(parserstate *state, position comment_pos, VALUE annotati
 }
 
 /*
+  class_decl_super ::= {} `<` <class_instance_name>
+                     | {<>}
+*/
+VALUE parse_class_decl_super(parserstate *state, range *lt_range) {
+  if (parser_advance_if(state, pLT)) {
+    range super_range;
+    range name_range;
+    range args_range = NULL_RANGE;
+
+    VALUE name;
+    VALUE args;
+    VALUE location;
+    rbs_loc *loc;
+
+    *lt_range = state->current_token.range;
+    super_range.start = state->next_token.range.start;
+
+    args = rb_ary_new();
+    class_instance_name(state, CLASS_NAME, &name, args, &name_range, &args_range);
+
+    super_range.end = args_range.end;
+
+    location = rbs_new_location(state->buffer, super_range);
+    loc = check_location(location);
+    rbs_loc_add_required_child(loc, rb_intern("name"), name_range);
+    rbs_loc_add_optional_child(loc, rb_intern("args"), args_range);
+
+    return rbs_ast_decl_class_super(name, args, location);
+  } else {
+    *lt_range = NULL_RANGE;
+    return Qnil;
+  }
+}
+
+/*
+  class_decl ::= {`class`} class_name type_params class_decl_super class_members <`end`>
+*/
+VALUE parse_class_decl(parserstate *state, position comment_pos, VALUE annotations) {
+  range decl_range;
+  range keyword_range;
+  range name_range;
+  range end_range;
+  range type_params_range;
+  range lt_range;
+
+  VALUE name;
+  VALUE type_params;
+  VALUE super;
+  VALUE members;
+  VALUE comment;
+  VALUE location;
+
+  rbs_loc *loc;
+
+  parser_push_typevar_table(state, true);
+
+  decl_range.start = state->current_token.range.start;
+  keyword_range = state->current_token.range;
+
+  comment_pos = nonnull_pos_or(comment_pos, decl_range.start);
+  comment = get_comment(state, comment_pos.line);
+
+  parser_advance(state);
+  name = parse_type_name(state, CLASS_NAME, &name_range);
+  type_params = parse_module_type_params(state, &type_params_range);
+  super = parse_class_decl_super(state, &lt_range);
+  members = parse_module_members(state);
+  parser_advance_assert(state, kEND);
+  end_range = state->current_token.range;
+
+  decl_range.end = end_range.end;
+
+  parser_pop_typevar_table(state);
+
+  location = rbs_new_location(state->buffer, decl_range);
+  loc = check_location(location);
+  rbs_loc_add_required_child(loc, rb_intern("keyword"), keyword_range);
+  rbs_loc_add_required_child(loc, rb_intern("name"), name_range);
+  rbs_loc_add_required_child(loc, rb_intern("end"), end_range);
+  rbs_loc_add_optional_child(loc, rb_intern("type_params"), type_params_range);
+  rbs_loc_add_optional_child(loc, rb_intern("lt"), lt_range);
+
+  return rbs_ast_decl_class(
+    name,
+    type_params,
+    super,
+    members,
+    annotations,
+    location,
+    comment
+  );
+}
+
+/*
   nested_decl ::= {<const_decl>}
                 | {<class_decl>}
                 | {<interface_decl>}
@@ -2055,6 +2149,8 @@ VALUE parse_decl(parserstate *state) {
     return parse_interface_decl(state, annot_pos, annotations);
   case kMODULE:
     return parse_module_decl(state, annot_pos, annotations);
+  case kCLASS:
+    return parse_class_decl(state, annot_pos, annotations);
   default:
     raise_syntax_error_e(
       state,

@@ -349,4 +349,30 @@ end
       end
     end
   end
+
+  def test_class_decl
+    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+      class Foo
+      end
+          RBS
+      decls[0].tap do |decl|
+        assert_instance_of RBS::AST::Declarations::Class, decl
+        assert_equal TypeName("Foo"), decl.name
+        assert_predicate decl.type_params, :empty?
+        assert_nil decl.super_class
+      end
+    end
+
+    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+      class Foo[A] < Bar[A]
+      end
+          RBS
+      decls[0].tap do |decl|
+        assert_instance_of RBS::AST::Declarations::Class, decl
+        assert_equal TypeName("Foo"), decl.name
+        assert_equal [:A], decl.type_params.each.map(&:name)
+        assert_equal TypeName("Bar"), decl.super_class.name
+      end
+    end
+  end
 end

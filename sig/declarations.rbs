@@ -86,7 +86,7 @@ module RBS
           # ^^^^^         name
           #      ^^^^^^^^ args
           #
-          type loc = Location::WithChildren[:name, :args]
+          type loc = Location[:name, :args]
 
           attr_reader name: TypeName
           attr_reader args: Array[Types::t]
@@ -112,7 +112,7 @@ module RBS
         #              ^            lt
         #                       ^^^ end
         #
-        type loc = Location::WithChildren[:keyword | :name | :end, :type_params | :lt]
+        type loc = Location[:keyword | :name | :end, :type_params | :lt]
 
         include NestedDeclarationHelper
         include MixinHelper
