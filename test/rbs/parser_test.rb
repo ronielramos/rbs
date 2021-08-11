@@ -181,4 +181,20 @@ end
       end
     end
   end
+
+  def test_module_decl_public_private
+    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+module Foo
+  public
+  private
+end
+    RBS
+      decls[0].tap do |decl|
+        assert_instance_of RBS::AST::Declarations::Module, decl
+
+        assert_instance_of RBS::AST::Members::Public, decl.members[0]
+        assert_instance_of RBS::AST::Members::Private, decl.members[1]
+      end
+    end
+  end
 end
