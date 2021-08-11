@@ -81,12 +81,17 @@ typedef enum {
 /*
   type_name ::= {`::`} (tUIDENT `::`)* <tXIDENT>
               | {(tUIDENT `::`)*} <tXIDENT>
+              | {(XXXX `::`)*} <tXIDENT>               // FIXME
               | {<tXIDENT>}
 */
-VALUE parse_type_name(parserstate *state, TypeNameKind kind) {
+VALUE parse_type_name(parserstate *state, TypeNameKind kind, range *rg) {
   VALUE absolute = Qfalse;
   VALUE path = rb_ary_new();
   VALUE namespace;
+
+  if (rg) {
+    rg->start = state->current_token.range.start;
+  }
 
   if (state->current_token.type == pCOLON2) {
     absolute = Qtrue;
@@ -129,6 +134,10 @@ VALUE parse_type_name(parserstate *state, TypeNameKind kind) {
         RSTRING_PTR(rb_funcall(ids, rb_intern("join"), 0))
       );
     }
+  }
+
+  if (rg) {
+    rg->end = state->current_token.range.end;
   }
 
   return rbs_type_name(namespace, ID2SYM(INTERN_TOKEN(state, state->current_token)));
@@ -708,9 +717,7 @@ static VALUE parse_simple(parserstate *state) {
     range args_range;
     range type_range;
 
-    name_range.start = state->current_token.range.start;
-    VALUE typename = parse_type_name(state, INTERFACE_NAME | CLASS_NAME | ALIAS_NAME);
-    name_range.end = state->current_token.range.end;
+    VALUE typename = parse_type_name(state, INTERFACE_NAME | CLASS_NAME | ALIAS_NAME, &name_range);
     VALUE types = rb_ary_new();
 
     TypeNameKind kind;
@@ -756,7 +763,7 @@ static VALUE parse_simple(parserstate *state) {
   }
   case tLIDENT: {
     VALUE location = rbs_location_current_token(state);
-    VALUE typename = parse_type_name(state, ALIAS_NAME);
+    VALUE typename = parse_type_name(state, ALIAS_NAME, NULL);
     return rbs_alias(typename, location);
   }
   case kSINGLETON: {
@@ -767,9 +774,7 @@ static VALUE parse_simple(parserstate *state) {
     parser_advance_assert(state, pLPAREN);
     parser_advance(state);
 
-    name_range.start = state->current_token.range.start;
-    VALUE typename = parse_type_name(state, CLASS_NAME);
-    name_range.end = state->current_token.range.end;
+    VALUE typename = parse_type_name(state, CLASS_NAME, &name_range);
 
     parser_advance_assert(state, pRPAREN);
     type_range.end = state->current_token.range.end;
@@ -923,7 +928,7 @@ VALUE parse_global_decl(parserstate *state) {
 */
 VALUE parse_const_decl(parserstate *state) {
   position start = state->current_token.range.start;
-  VALUE typename = parse_type_name(state, CLASS_NAME);
+  VALUE typename = parse_type_name(state, CLASS_NAME, NULL);
 
   parser_advance_assert(state, pCOLON);
 
@@ -946,7 +951,7 @@ VALUE parse_type_decl(parserstate *state, position comment_pos, VALUE annotation
   comment_pos = nonnull_pos_or(comment_pos, start);
 
   parser_advance(state);
-  VALUE typename = parse_type_name(state, ALIAS_NAME);
+  VALUE typename = parse_type_name(state, ALIAS_NAME, NULL);
 
   parser_advance_assert(state, pEQ);
 
@@ -1300,8 +1305,7 @@ VALUE parse_member_def(parserstate *state, bool instance_only, bool accept_overl
 void class_instance_name(parserstate *state, TypeNameKind kind, VALUE *name, VALUE args, range *name_range, range *args_range) {
   parser_advance(state);
 
-  *name_range = state->current_token.range;
-  *name = parse_type_name(state, kind);
+  *name = parse_type_name(state, kind, name_range);
 
   if (state->next_token.type == pLBRACKET) {
     parser_advance(state);
@@ -1744,7 +1748,7 @@ VALUE parse_interface_decl(parserstate *state, position comment_pos, VALUE annot
   parser_advance(state);
 
   VALUE name = parse_type_name(state, INTERFACE_NAME);
-  VALUE params = parse_module_type_params(state, &type_params_range);
+  VALUE params = parse_module_type_params(state, &type_params_range, NULL);
   VALUE members = parse_interface_members(state);
 
   parser_advance_assert(state, kEND);
