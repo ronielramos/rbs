@@ -211,4 +211,28 @@ end
       end
     end
   end
+
+  def test_module_type_var_decl
+    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+module Foo[A]
+  type t = A
+
+  FOO: A
+end
+    RBS
+      decls[0].tap do |decl|
+        assert_instance_of RBS::AST::Declarations::Module, decl
+
+        decl.members[0].tap do |member|
+          assert_instance_of RBS::AST::Declarations::Alias, member
+          assert_instance_of RBS::Types::ClassInstance, member.type
+        end
+
+        decl.members[1].tap do |member|
+          assert_instance_of RBS::AST::Declarations::Constant, member
+          assert_instance_of RBS::Types::ClassInstance, member.type
+        end
+      end
+    end
+  end
 end

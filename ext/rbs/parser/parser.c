@@ -1931,16 +1931,24 @@ VALUE parse_module_decl(parserstate *state, position comment_pos, VALUE annotati
                 | {<class_decl>}
 */
 VALUE parse_nested_decl(parserstate *state, const char *nested_in, position annot_pos, VALUE annotations) {
+  VALUE decl;
+
+  parser_push_typevar_table(state, true);
+
   switch (state->current_token.type) {
   case tUIDENT:
   case pCOLON2:
-    return parse_const_decl(state);
+    decl = parse_const_decl(state);
+    break;
   case kTYPE:
-    return parse_type_decl(state, annot_pos, annotations);
+    decl = parse_type_decl(state, annot_pos, annotations);
+    break;
   case kINTERFACE:
-    return parse_interface_decl(state, annot_pos, annotations);
+    decl = parse_interface_decl(state, annot_pos, annotations);
+    break;
   case kMODULE:
-    return parse_module_decl(state, annot_pos, annotations);
+    decl = parse_module_decl(state, annot_pos, annotations);
+    break;
   default:
     raise_syntax_error_e(
       state,
@@ -1948,6 +1956,10 @@ VALUE parse_nested_decl(parserstate *state, const char *nested_in, position anno
       "%s declaration member"
     );
   }
+
+  parser_pop_typevar_table(state);
+
+  return decl;
 }
 
 VALUE parse_decl(parserstate *state) {
