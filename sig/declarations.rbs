@@ -199,7 +199,7 @@ module RBS
         #               ^^^^^^     type_params
         #                      ^^^ end
         #
-        type loc = Location::WithChildren[:name | :keyword | :end, :type_params]
+        type loc = Location[:name | :keyword | :end, :type_params]
 
         attr_reader name: TypeName
         attr_reader type_params: ModuleTypeParams
