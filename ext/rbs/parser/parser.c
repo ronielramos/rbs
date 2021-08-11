@@ -947,22 +947,34 @@ VALUE parse_const_decl(parserstate *state) {
   type_decl ::= {kTYPE} alias_name `=` <type>
 */
 VALUE parse_type_decl(parserstate *state, position comment_pos, VALUE annotations) {
-  position start = state->current_token.range.start;
-  comment_pos = nonnull_pos_or(comment_pos, start);
+  range decl_range;
+  range keyword_range, name_range, eq_range;
+
+  decl_range.start = state->current_token.range.start;
+  comment_pos = nonnull_pos_or(comment_pos, decl_range.start);
+
+  keyword_range = state->current_token.range;
 
   parser_advance(state);
-  VALUE typename = parse_type_name(state, ALIAS_NAME, NULL);
+  VALUE typename = parse_type_name(state, ALIAS_NAME, &name_range);
 
   parser_advance_assert(state, pEQ);
+  eq_range = state->current_token.range;
 
   VALUE type = parse_type(state);
-  position end = state->current_token.range.end;
+  decl_range.end = state->current_token.range.end;
+
+  VALUE location = rbs_new_location(state->buffer, decl_range);
+  rbs_loc *loc = check_location(location);
+  rbs_loc_add_required_child(loc, rb_intern("keyword"), keyword_range);
+  rbs_loc_add_required_child(loc, rb_intern("name"), name_range);
+  rbs_loc_add_required_child(loc, rb_intern("eq"), eq_range);
 
   return rbs_ast_decl_alias(
     typename,
     type,
     annotations,
-    rbs_location_pp(state->buffer, &start, &end),
+    location,
     get_comment(state, comment_pos.line)
   );
 }

@@ -221,7 +221,7 @@ module RBS
         # ^^^^                keyword
         #      ^^^            name
         #          ^          eq
-        type loc = Location::WithChildren[:keyword | :name | :eq, bot]
+        type loc = Location[:keyword | :name | :eq, bot]
 
         attr_reader name: TypeName
         attr_reader type: Types::t
