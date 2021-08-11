@@ -36,10 +36,10 @@ VALUE parse_signature(parserstate *state);
 
 void rbs_unescape_string(VALUE string);
 
-id_table *parser_push_table(parserstate *state);
-void parser_insert_id(parserstate *state, ID id);
-bool parser_id_member(parserstate *state, ID id);
-void parser_pop_table(parserstate *state);
+id_table *parser_push_typevar_table(parserstate *state, bool reset);
+void parser_insert_typevar(parserstate *state, ID id);
+bool parser_typevar_member(parserstate *state, ID id);
+void parser_pop_typevar_table(parserstate *state);
 
 void print_parser(parserstate *state);
 void parser_advance(parserstate *state);

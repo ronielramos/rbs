@@ -1,59 +1,79 @@
 #include "rbs_parser.h"
 
-id_table *parser_push_table(parserstate *state) {
-  id_table *table;
+#define RESET_TABLE_P(table) (table->size == 0)
 
-  if (state->vars) {
-    table = state->vars;
-    while (table->next != NULL) {
-      table = table->next;
-    }
-
-    table->next = calloc(1, sizeof(id_table));
-    table = table->next;
-  } else {
-    table = calloc(1, sizeof(id_table));
-    state->vars = table;
-  }
-
+id_table *alloc_empty_table() {
+  id_table *table = malloc(sizeof(id_table));
   table->size = 10;
-  table->ids = calloc(10, sizeof(ID));
   table->count = 0;
+  table->ids = calloc(10, sizeof(ID));
 
   return table;
 }
 
-void parser_insert_id(parserstate *state, ID id) {
+id_table *alloc_reset_table() {
+  id_table *table = malloc(sizeof(id_table));
+  table->size = 0;
+
+  return table;
+}
+
+id_table *parser_push_typevar_table(parserstate *state, bool reset) {
+  if (reset) {
+    id_table *table = alloc_reset_table();
+    table->next = state->vars;
+    state->vars = table;
+  }
+
+  id_table *table = alloc_empty_table();
+  table->next = state->vars;
+  state->vars = table;
+
+  return table;
+}
+
+void parser_pop_typevar_table(parserstate *state) {
   id_table *table;
 
-  table = state->vars;
+  if (state->vars) {
+    table = state->vars;
+    state->vars = table->next;
+    free(table->ids);
+    free(table);
+  } else {
+    rb_raise(rb_eRuntimeError, "Cannot pop empty table");
+  }
 
-  while (table->next != NULL) {
-    table = table->next;
+  if (state->vars && RESET_TABLE_P(state->vars)) {
+    table = state->vars;
+    state->vars = table->next;
+    free(table);
+  }
+}
+
+void parser_insert_typevar(parserstate *state, ID id) {
+  id_table *table = state->vars;
+
+  if (RESET_TABLE_P(table)) {
+    rb_raise(rb_eRuntimeError, "Cannot insert to reset table");
   }
 
   if (table->size == table->count) {
-    ID *copy = calloc(table->size * 2, sizeof(ID));
-    table->size *= 2;
-    memcpy(copy, table->ids, table->count * sizeof(ID));
-    free(table->ids);
-    table->ids = copy;
+    // expand
+    ID *ptr = table->ids;
+    table->size += 10;
+    table->ids = calloc(table->size, sizeof(ID));
+    memcpy(table->ids, ptr, sizeof(ID) * table->count);
+    free(ptr);
   }
 
-  table->ids[table->count] = id;
-  table->count += 1;
-
-  return;
+  table->ids[table->count++] = id;
 }
 
-bool parser_id_member(parserstate *state, ID id) {
-  id_table *table;
+bool parser_typevar_member(parserstate *state, ID id) {
+  id_table *table = state->vars;
 
-  table = state->vars;
-
-  while (true) {
-    if (table == NULL) break;
-
+  while (table && !RESET_TABLE_P(table)) {
     for (size_t i = 0; i < table->count; i++) {
       if (table->ids[i] == id) {
         return true;
@@ -65,31 +85,6 @@ bool parser_id_member(parserstate *state, ID id) {
 
   return false;
 }
-
-void parser_pop_table(parserstate *state) {
-  id_table *table;
-  id_table *parent;
-
-  if (state->vars->next == NULL) {
-    free(state->vars->ids);
-    free(state->vars);
-    state->vars = NULL;
-  } else {
-    parent = state->vars;
-    table = state->vars->next;
-
-    while (table->next != NULL) {
-      parent = table;
-      table = table->next;
-    }
-
-    free(table->ids);
-    free(table);
-
-    parent->next = NULL;
-  }
-}
-
 
 void print_parser(parserstate *state) {
   pp(state->buffer);

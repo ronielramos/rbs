@@ -696,7 +696,7 @@ static VALUE parse_simple(parserstate *state) {
   }
   case tUIDENT: {
     ID name = INTERN_TOKEN(state, state->current_token);
-    if (parser_id_member(state, name)) {
+    if (parser_typevar_member(state, name)) {
       return rbs_variable(ID2SYM(name), rbs_location_current_token(state));
     }
     // fallthrough for type name
@@ -854,7 +854,7 @@ VALUE parse_type(parserstate *state) {
 VALUE parse_method_type(parserstate *state) {
   VALUE function = Qnil;
   VALUE block = Qnil;
-  id_table *table = parser_push_table(state);
+  id_table *table = parser_push_typevar_table(state, false);
 
   position start = state->next_token.range.start;
 
@@ -864,7 +864,7 @@ VALUE parse_method_type(parserstate *state) {
     while (true) {
       parser_advance_assert(state, tUIDENT);
       ID name = INTERN_TOKEN(state, state->current_token);
-      parser_insert_id(state, name);
+      parser_insert_typevar(state, name);
 
       if (state->next_token.type == pCOMMA) {
         parser_advance(state);
@@ -888,7 +888,7 @@ VALUE parse_method_type(parserstate *state) {
     rb_ary_push(type_params, ID2SYM(table->ids[i]));
   }
 
-  parser_pop_table(state);
+  parser_pop_typevar_table(state);
 
   return rbs_method_type(
     type_params,
@@ -1033,7 +1033,7 @@ VALUE parse_module_type_params(parserstate *state, range *rg) {
       ID id = INTERN_TOKEN(state, state->current_token);
       name = ID2SYM(id);
 
-      parser_insert_id(state, id);
+      parser_insert_typevar(state, id);
 
       VALUE location = rbs_new_location(state->buffer, param_range);
       rbs_loc *loc = check_location(location);
@@ -1720,7 +1720,7 @@ VALUE parse_interface_decl(parserstate *state, position comment_pos, VALUE annot
   position start = state->current_token.range.start;
   comment_pos = nonnull_pos_or(comment_pos, start);
 
-  parser_push_table(state);
+  parser_push_typevar_table(state, true);
   parser_advance(state);
 
   VALUE name = parse_type_name(state, INTERFACE_NAME);
@@ -1730,7 +1730,7 @@ VALUE parse_interface_decl(parserstate *state, position comment_pos, VALUE annot
   parser_advance_assert(state, kEND);
 
   position end = state->current_token.range.end;
-  parser_pop_table(state);
+  parser_pop_typevar_table(state);
 
   return rbs_ast_decl_interface(
     name,
@@ -1868,7 +1868,7 @@ VALUE parse_module_decl(parserstate *state, position comment_pos, VALUE annotati
   range colon_range;
   range self_types_range;
 
-  parser_push_table(state);
+  parser_push_typevar_table(state, true);
 
   position start = state->current_token.range.start;
   comment_pos = nonnull_pos_or(comment_pos, start);
@@ -1910,7 +1910,7 @@ VALUE parse_module_decl(parserstate *state, position comment_pos, VALUE annotati
   rbs_loc_add_optional_child(loc, rb_intern("colon"), colon_range);
   rbs_loc_add_optional_child(loc, rb_intern("self_types"), self_types_range);
 
-  parser_pop_table(state);
+  parser_pop_typevar_table(state);
 
   return rbs_ast_decl_module(
     module_name,
