@@ -240,7 +240,7 @@ module RBS
         # ^^^^^^^         name
         #        ^        colon
         #
-        type loc = Location::WithChildren[:name | :colon, bot]
+        type loc = Location[:name | :colon, bot]
 
         attr_reader name: TypeName
         attr_reader type: Types::t
