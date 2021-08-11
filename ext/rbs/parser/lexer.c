@@ -69,6 +69,8 @@ static const char *RBS_TOKENTYPE_NAMES[] = {
   "kATTRREADER",      /* attr_reader */
   "kATTRWRITER",      /* attr_writer */
   "kATTRACCESSOR",    /* attr_accessor */
+  "kPUBLIC",          /* public */
+  "kPRIVATE",         /* private */
 
   "tLIDENT",          /* Identifiers starting with lower case */
   "tUIDENT",          /* Identifiers starting with upper case */

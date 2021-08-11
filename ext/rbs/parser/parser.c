@@ -28,6 +28,9 @@
   case kATTRREADER: \
   case kATTRWRITER: \
   case kATTRACCESSOR: \
+  case kPUBLIC: \
+  case kPRIVATE: \
+  /* nop */
 
 typedef struct {
   VALUE required_positionals;
@@ -1533,6 +1536,39 @@ VALUE parse_variable_member(parserstate *state, position comment_pos, VALUE anno
 }
 
 /*
+  visibility_member ::= {<`public`>}
+                      | {<`private`>}
+*/
+VALUE parse_visibility_member(parserstate *state, VALUE annotations) {
+  if (rb_array_len(annotations) > 0) {
+    raise_syntax_error_e(
+      state,
+      state->current_token,
+      "annotation cannot be given to visibility members"
+    );
+  }
+
+  VALUE klass;
+
+  switch (state->current_token.type)
+  {
+  case kPUBLIC:
+    klass = RBS_AST_Members_Public;
+    break;
+  case kPRIVATE:
+    klass = RBS_AST_Members_Private;
+    break;
+  default:
+    rb_raise(rb_eRuntimeError, "unexpected token");
+  }
+
+  return rbs_ast_members_visibility(
+    klass,
+    rbs_new_location(state->buffer, state->current_token.range)
+  );
+}
+
+/*
   attribute_member ::= {attr_keyword} attr_name attr_var `:` <type>
                      | {attr_keyword} `self` `.` attr_name attr_var `:` <type>
 
@@ -1799,6 +1835,11 @@ VALUE parse_module_members(parserstate *state) {
     case kATTRWRITER:
     case kATTRACCESSOR:
       member = parse_attribute_member(state, annot_pos, annotations);
+      break;
+
+    case kPUBLIC:
+    case kPRIVATE:
+      member = parse_visibility_member(state, annotations);
       break;
 
     default:
