@@ -907,20 +907,34 @@ VALUE parse_method_type(parserstate *state) {
   global_decl ::= {tGIDENT} `:` <type>
 */
 VALUE parse_global_decl(parserstate *state) {
-  position start = state->current_token.range.start;
-  VALUE typename = ID2SYM(INTERN_TOKEN(state, state->current_token));
+  range decl_range;
+  range name_range, colon_range;
+
+  VALUE typename;
+  VALUE type;
+  VALUE location;
+  VALUE comment;
+
+  rbs_loc *loc;
+
+  decl_range.start = state->current_token.range.start;
+  comment = get_comment(state, decl_range.start.line);
+
+  name_range = state->current_token.range;
+  typename = ID2SYM(INTERN_TOKEN(state, state->current_token));
 
   parser_advance_assert(state, pCOLON);
+  colon_range = state->current_token.range;
 
-  VALUE type = parse_type(state);
-  position end = state->current_token.range.end;
+  type = parse_type(state);
+  decl_range.end = state->current_token.range.end;
 
-  return rbs_ast_decl_global(
-    typename,
-    type,
-    rbs_location_pp(state->buffer, &start, &end),
-    get_comment(state, start.line)
-  );
+  location = rbs_new_location(state->buffer, decl_range);
+  loc = check_location(location);
+  rbs_loc_add_required_child(loc, rb_intern("name"), name_range);
+  rbs_loc_add_required_child(loc, rb_intern("colon"), colon_range);
+
+  return rbs_ast_decl_global(typename, type, location, comment);
 }
 
 /*
