@@ -43,15 +43,17 @@ end
   end
 
   def test_interface_mixin
-    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+    assert_raises do
+      RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
 interface _Foo[unchecked in A]
   include Array[A]
   extend Object
   prepend _Foo[String]
 end
-    RBS
-      decls[0].tap do |decl|
-        pp decl.members
+      RBS
+        decls[0].tap do |decl|
+          pp decl.members
+        end
       end
     end
   end
@@ -121,6 +123,61 @@ end
     RBS
       decls[0].tap do |decl|
         assert_instance_of RBS::AST::Declarations::Module, decl
+      end
+    end
+  end
+
+  def test_module_decl_attributes
+    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+module Foo
+  attr_reader string: String
+  attr_writer self.name (): Integer
+  attr_accessor writer (@Writer): Symbol
+end
+    RBS
+      decls[0].tap do |decl|
+        assert_instance_of RBS::AST::Declarations::Module, decl
+
+        decl.members[0].tap do |member|
+          assert_instance_of RBS::AST::Members::AttrReader, member
+          assert_equal :instance, member.kind
+          assert_equal :string, member.name
+          assert_equal "String", member.type.to_s
+
+          assert_equal "attr_reader", member.location[:keyword].source
+          assert_equal "string", member.location[:name].source
+          assert_nil member.location[:kind]
+          assert_nil member.location[:ivar]
+          assert_nil member.location[:ivar_name]
+        end
+
+        decl.members[1].tap do |member|
+          assert_instance_of RBS::AST::Members::AttrWriter, member
+          assert_equal :singleton, member.kind
+          assert_equal :name, member.name
+          assert_equal "Integer", member.type.to_s
+          assert_equal false, member.ivar_name
+
+          assert_equal "attr_writer", member.location[:keyword].source
+          assert_equal "name", member.location[:name].source
+          assert_equal "self.", member.location[:kind].source
+          assert_equal "()", member.location[:ivar].source
+          assert_nil member.location[:ivar_name]
+        end
+
+        decl.members[2].tap do |member|
+          assert_instance_of RBS::AST::Members::AttrAccessor, member
+          assert_equal :instance, member.kind
+          assert_equal :writer, member.name
+          assert_equal "Symbol", member.type.to_s
+          assert_equal :"@Writer", member.ivar_name
+
+          assert_equal "attr_accessor", member.location[:keyword].source
+          assert_equal "writer", member.location[:name].source
+          assert_nil member.location[:kind]
+          assert_equal "(@Writer)", member.location[:ivar].source
+          assert_equal "@Writer", member.location[:ivar_name].source
+        end
       end
     end
   end

@@ -21,11 +21,13 @@
   case kEND: \
   case kDEF: \
   case kINCLUDE: \
-  case kIN: \
   case kEXTEND: \
   case kPREPEND: \
   case kALIAS: \
-  case kMODULE:
+  case kMODULE: \
+  case kATTRREADER: \
+  case kATTRWRITER: \
+  case kATTRACCESSOR: \
 
 typedef struct {
   VALUE required_positionals;
@@ -1134,8 +1136,10 @@ typedef enum {
   instance_singleton_kind ::= {<>}
                             | {} kSELF <`.`>
                             | {} kSELF~`?` <`.`>
+
+  @param allow_selfq `true` to accept `self?` kind.
 */
-InstanceSingletonKind parse_instance_singleton_kind(parserstate *state, range *rg) {
+InstanceSingletonKind parse_instance_singleton_kind(parserstate *state, bool allow_selfq, range *rg) {
   InstanceSingletonKind kind = INSTANCE_KIND;
 
   if (state->next_token.type == kSELF) {
@@ -1149,15 +1153,20 @@ InstanceSingletonKind parse_instance_singleton_kind(parserstate *state, range *r
       rg->end = state->current_token.range.end;
     } else if (
       state->next_token.type == pQUESTION
-    && state->next_token.range.end.char_pos == state->next_token2.range.start.char_pos
-    && state->next_token2.type == pDOT) {
+    && state->current_token.range.end.char_pos == state->next_token.range.start.char_pos
+    && state->next_token2.type == pDOT
+    && allow_selfq) {
       parser_advance(state);
       parser_advance(state);
       kind = INSTANCE_SINGLETON_KIND;
       rg->start = self_range.start;
       rg->end = state->current_token.range.end;
     } else {
-      raise_syntax_error_e(state, state->next_token, "instance/singleton kind, `self.` or `self?.`");
+      if (allow_selfq) {
+        raise_syntax_error_e(state, state->next_token, "instance/singleton kind, `self.` or `self?.`");
+      } else {
+        raise_syntax_error_e(state, state->next_token, "instance/singleton kind, `self.`");
+      }
     }
   } else {
     *rg = NULL_RANGE;
@@ -1194,7 +1203,7 @@ VALUE parse_member_def(parserstate *state, bool instance_only, bool accept_overl
     kind_range = NULL_RANGE;
     kind = INSTANCE_KIND;
   } else {
-    kind = parse_instance_singleton_kind(state, &kind_range);
+    kind = parse_instance_singleton_kind(state, true, &kind_range);
   }
 
   VALUE name = parse_method_name(state, &name_range);
@@ -1524,6 +1533,102 @@ VALUE parse_variable_member(parserstate *state, position comment_pos, VALUE anno
 }
 
 /*
+  attribute_member ::= {attr_keyword} attr_name attr_var `:` <type>
+                     | {attr_keyword} `self` `.` attr_name attr_var `:` <type>
+
+  attr_keyword ::= `attr_reader` | `attr_writer` | `attr_accessor`
+
+  attr_var ::=                    # empty
+             | `(` tAIDENT `)`    # Ivar name
+             | `(` `)`            # No variable
+*/
+VALUE parse_attribute_member(parserstate *state, position comment_pos, VALUE annotations) {
+  range member_range;
+  range keyword_range, name_range, colon_range;
+  range kind_range = NULL_RANGE, ivar_range = NULL_RANGE, ivar_name_range = NULL_RANGE;
+
+  VALUE klass;
+  VALUE kind;
+  VALUE attr_name;
+  VALUE ivar_name;
+  VALUE type;
+  VALUE comment;
+  VALUE location;
+  rbs_loc *loc;
+
+  member_range.start = state->current_token.range.start;
+  comment_pos = nonnull_pos_or(comment_pos, member_range.start);
+  comment = get_comment(state, comment_pos.line);
+
+  keyword_range = state->current_token.range;
+  switch (state->current_token.type)
+  {
+  case kATTRREADER:
+    klass = RBS_AST_Members_AttrReader;
+    break;
+  case kATTRWRITER:
+    klass = RBS_AST_Members_AttrWriter;
+    break;
+  case kATTRACCESSOR:
+    klass = RBS_AST_Members_AttrAccessor;
+    break;
+  default:
+    rb_raise(rb_eRuntimeError, "Unexpected token");
+  }
+
+  if (parse_instance_singleton_kind(state, false, &kind_range) == INSTANCE_KIND) {
+    kind = ID2SYM(rb_intern("instance"));
+  } else {
+    kind = ID2SYM(rb_intern("singleton"));
+  }
+
+  attr_name = parse_method_name(state, &name_range);
+
+  if (state->next_token.type == pLPAREN) {
+    parser_advance_assert(state, pLPAREN);
+    ivar_range.start = state->current_token.range.start;
+
+    if (parser_advance_if(state, tAIDENT)) {
+      ivar_name = ID2SYM(INTERN_TOKEN(state, state->current_token));
+      ivar_name_range = state->current_token.range;
+    } else {
+      ivar_name = Qfalse;
+    }
+
+    parser_advance_assert(state, pRPAREN);
+    ivar_range.end = state->current_token.range.end;
+  } else {
+    ivar_name = Qnil;
+  }
+
+  parser_advance_assert(state, pCOLON);
+  colon_range = state->current_token.range;
+
+  type = parse_type(state);
+  member_range.end = state->current_token.range.end;
+
+  location = rbs_new_location(state->buffer, member_range);
+  loc = check_location(location);
+  rbs_loc_add_required_child(loc, rb_intern("keyword"), keyword_range);
+  rbs_loc_add_required_child(loc, rb_intern("name"), name_range);
+  rbs_loc_add_required_child(loc, rb_intern("colon"), colon_range);
+  rbs_loc_add_optional_child(loc, rb_intern("kind"), kind_range);
+  rbs_loc_add_optional_child(loc, rb_intern("ivar"), ivar_range);
+  rbs_loc_add_optional_child(loc, rb_intern("ivar_name"), ivar_name_range);
+
+  return rbs_ast_members_attribute(
+    klass,
+    attr_name,
+    type,
+    ivar_name,
+    kind,
+    annotations,
+    location,
+    comment
+  );
+}
+
+/*
   interface_members ::= {} ...<interface_member> kEND
 
   interface_member ::= def_member     (instance method only && no overloading)
@@ -1650,9 +1755,10 @@ void parse_module_self_types(parserstate *state, VALUE array) {
   module_member ::= def_member
                   | variable_member
                   | mixin_member
+                  | alias_member
+                  | attribute_member
                   | `public`
                   | `private`
-                  | alias_member
 */
 VALUE parse_module_members(parserstate *state) {
   VALUE members = rb_ary_new();
@@ -1687,6 +1793,12 @@ VALUE parse_module_members(parserstate *state) {
     case tA2IDENT:
     case kSELF:
       member = parse_variable_member(state, annot_pos, annotations);
+      break;
+
+    case kATTRREADER:
+    case kATTRWRITER:
+    case kATTRACCESSOR:
+      member = parse_attribute_member(state, annot_pos, annotations);
       break;
 
     default:

@@ -44,6 +44,7 @@ void parser_pop_table(parserstate *state);
 void print_parser(parserstate *state);
 void parser_advance(parserstate *state);
 void parser_advance_assert(parserstate *state, enum TokenType type);
+bool parser_advance_if(parserstate *state, enum TokenType type);
 
 void insert_comment_line(parserstate *state, token token);
 VALUE get_comment(parserstate *state, int subject_line);

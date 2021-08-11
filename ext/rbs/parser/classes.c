@@ -525,7 +525,7 @@ VALUE rbs_ast_members_attribute(VALUE klass, VALUE name, VALUE type, VALUE ivar_
   rb_hash_aset(args, ID2SYM(rb_intern("name")), name);
   rb_hash_aset(args, ID2SYM(rb_intern("type")), type);
   rb_hash_aset(args, ID2SYM(rb_intern("ivar_name")), ivar_name);
-  rb_hash_aset(args, ID2SYM(rb_intern("klass")), kind);
+  rb_hash_aset(args, ID2SYM(rb_intern("kind")), kind);
   rb_hash_aset(args, ID2SYM(rb_intern("annotations")), annotations);
   rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
   rb_hash_aset(args, ID2SYM(rb_intern("comment")), comment);

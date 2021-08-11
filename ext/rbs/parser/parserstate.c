@@ -119,6 +119,21 @@ void parser_advance(parserstate *state) {
   }
 }
 
+/**
+ * Advance token if _next_ token is `type`.
+ * Ensures one token advance and `state->current_token.type == type`, or current token not changed.
+ *
+ * @returns true if token advances, false otherwise.
+ **/
+bool parser_advance_if(parserstate *state, enum TokenType type) {
+  if (state->next_token.type == type) {
+    parser_advance(state);
+    return true;
+  } else {
+    return false;
+  }
+}
+
 void parser_advance_assert(parserstate *state, enum TokenType type) {
   parser_advance(state);
   if (state->current_token.type != type) {
