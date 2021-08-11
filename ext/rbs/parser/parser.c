@@ -1,7 +1,8 @@
 #include "rbs_parser.h"
 #include "ruby/internal/symbol.h"
 
-#define KEYWORD_CASES case kBOOL:\
+#define KEYWORD_CASES \
+  case kBOOL:\
   case kBOT: \
   case kCLASS: \
   case kFALSE: \
@@ -17,7 +18,14 @@
   case kUNCHECKED: \
   case kIN: \
   case kOUT: \
-  case kEND:
+  case kEND: \
+  case kDEF: \
+  case kINCLUDE: \
+  case kIN: \
+  case kEXTEND: \
+  case kPREPEND: \
+  case kALIAS: \
+  case kMODULE:
 
 typedef struct {
   VALUE required_positionals;
