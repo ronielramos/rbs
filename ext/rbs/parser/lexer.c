@@ -139,14 +139,9 @@ token next_token(lexstate *state, enum TokenType type, position start) {
   return t;
 }
 
-/**
- * ... c1c2c3 ...
- *    ^              current
- *           ^       current + len
- *           ^       After skip
- *
- * */
-void skipbyte(lexstate *state, unsigned int c, int len) {
+void skip(lexstate *state, unsigned int c) {
+  int len = rb_enc_codelen(c, rb_enc_get(state->string));
+
   state->current.char_pos += 1;
   state->current.byte_pos += len;
 
@@ -157,11 +152,6 @@ void skipbyte(lexstate *state, unsigned int c, int len) {
   } else {
     state->current.column += 1;
   }
-}
-
-void skip(lexstate *state, unsigned int c) {
-  int len = rb_enc_codelen(c, rb_enc_get(state->string));
-  skipbyte(state, c, len);
 }
 
 /*
@@ -190,7 +180,7 @@ static token lex_number(lexstate *state, position start) {
     c = peek(state);
 
     if (rb_isdigit(c) || c == '_') {
-      skipbyte(state, c, 1);
+      skip(state, c);
     } else {
       break;
     }
@@ -218,7 +208,7 @@ static token lex_hyphen(lexstate* state, position start) {
     unsigned int c = peek(state);
 
     if (rb_isdigit(c)) {
-      skipbyte(state, c, 1);
+      skip(state, c);
       return lex_number(state, start);
     } else {
       return next_token(state, tOPERATOR, start);
@@ -245,10 +235,10 @@ static token lex_dot(lexstate *state, position start, int count) {
   unsigned int c = peek(state);
 
   if (c == '.' && count == 2) {
-    skipbyte(state, c, 1);
+    skip(state, c);
     return next_token(state, pDOT3, start);
   } else if (c == '.' && count == 1) {
-    skipbyte(state, c, 1);
+    skip(state, c);
     return lex_dot(state, start, 2);
   } else {
     return next_token(state, pDOT, start);
@@ -274,14 +264,14 @@ static token lex_underscore(lexstate *state, position start) {
   c = peek(state);
 
   if ('A' <= c && c <= 'Z') {
-    skipbyte(state, c, 1);
+    skip(state, c);
 
     while (true) {
       c = peek(state);
 
       if (rb_isalnum(c) || c == '_') {
         // ok
-        skipbyte(state, c, 1);
+        skip(state, c);
       } else {
         break;
       }
@@ -296,7 +286,7 @@ static token lex_underscore(lexstate *state, position start) {
 
       if (rb_isalnum(c) || c == '_') {
         // ok
-        skipbyte(state, c, 1);
+        skip(state, c);
       } else {
         break;
       }
@@ -314,12 +304,12 @@ static token lex_global(lexstate *state, position start) {
   c = peek(state);
 
   if (rb_isalpha(c) || c == '_') {
-    skipbyte(state, c, 1);
+    skip(state, c);
 
     while (true) {
       c = peek(state);
       if (rb_isalnum(c) || c == '_') {
-        skipbyte(state, c, 1);
+        skip(state, c);
       } else {
         return next_token(state, tGIDENT, start);
       }
@@ -343,11 +333,11 @@ static token lex_ident(lexstate *state, position start, enum TokenType default_t
     if (rb_isalnum(c) || c == '_') {
       skip(state, c);
     } else if (c == '!') {
-      skipbyte(state, c, 1);
+      skip(state, c);
       tok = next_token(state, tBANGIDENT, start);
       break;
     } else if (c == '=') {
-      skipbyte(state, c, 1);
+      skip(state, c);
       tok = next_token(state, tEQIDENT, start);
       break;
     } else {
@@ -635,7 +625,7 @@ static token lex_colon(lexstate *state, position start) {
   unsigned int c = peek(state);
 
   if (c == ':') {
-    skipbyte(state, c, 1);
+    skip(state, c);
     return next_token(state, pCOLON2, start);
   } else {
     return lex_colon_symbol(state, start);
