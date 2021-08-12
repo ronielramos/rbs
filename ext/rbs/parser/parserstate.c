@@ -192,12 +192,25 @@ VALUE get_comment(parserstate *state, int subject_line) {
   if (comment->end.line != subject_line - 1) return Qnil;
 
   VALUE content = rb_funcall(state->buffer, rb_intern("content"), 0);
-  VALUE string = rb_enc_str_new_cstr("", rb_enc_get(content));
+  rb_encoding *enc = rb_enc_get(content);
+  VALUE string = rb_enc_str_new_cstr("", enc);
+
+  int hash_bytes = rb_enc_codelen('#', enc);
+  int space_bytes = rb_enc_codelen(' ', enc);
 
   for (size_t i = 0; i < comment->line_count; i++) {
     token tok = comment->tokens[i];
-    char *p = peek_token(state->lexstate, tok);
-    rb_str_cat(string, p, RANGE_BYTES(tok.range));
+
+    char *comment_start = RSTRING_PTR(content) + tok.range.start.byte_pos + hash_bytes;
+    int comment_bytes = RANGE_BYTES(tok.range) - hash_bytes;
+    unsigned char c = rb_enc_mbc_to_codepoint(comment_start, RSTRING_END(content), enc);
+
+    if (c == ' ') {
+      comment_start += space_bytes;
+      comment_bytes -= space_bytes;
+    }
+
+    rb_str_cat(string, comment_start, comment_bytes);
     rb_str_cat_cstr(string, "\n");
   }
 

@@ -372,15 +372,13 @@ static token lex_ident(lexstate *state, position start, enum TokenType default_t
   return tok;
 }
 
-static token lex_comment(lexstate *state, enum TokenType type) {
+static token lex_comment(lexstate *state, enum TokenType type, position start) {
   unsigned int c;
 
   c = peek(state);
   if (c == ' ') {
     skip(state, c);
   }
-
-  position start = state->current;
 
   while (true) {
     c = peek(state);
@@ -857,9 +855,9 @@ token rbsparser_next_token(lexstate *state) {
       break;
     case '#':
       if (state->first_token_of_line) {
-        tok = lex_comment(state, tLINECOMMENT);
+        tok = lex_comment(state, tLINECOMMENT, start);
       } else {
-        tok = lex_comment(state, tCOMMENT);
+        tok = lex_comment(state, tCOMMENT, start);
       }
       break;
     case ':':

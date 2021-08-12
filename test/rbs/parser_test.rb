@@ -421,4 +421,18 @@ end
     assert_equal :hello, RBS::Parser.parse_type(buffer(':"hello"')).literal
     assert_equal :hello, RBS::Parser.parse_type(buffer(':hello')).literal
   end
+
+  def test_parse_comment
+    RBS::Parser.parse_signature(buffer(<<-RBS)).tap do |decls|
+      # Hello
+      #  World
+      #Yes
+      #
+      # No
+      class Foo
+      end
+    RBS
+      assert_equal "Hello\n World\nYes\n\nNo\n", decls[0].comment.string
+    end
+  end
 end
