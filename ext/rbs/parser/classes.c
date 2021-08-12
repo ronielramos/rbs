@@ -45,7 +45,7 @@ VALUE rbs_class_instance(VALUE typename, VALUE type_args, VALUE location) {
   VALUE args = rb_hash_new();
   rb_hash_aset(args, ID2SYM(rb_intern("name")), typename);
   rb_hash_aset(args, ID2SYM(rb_intern("args")), type_args);
-  rb_hash_aset(args, ID2SYM(rb_intern("location")), Qnil);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
 
   return rb_funcallv_kw(
     RBS_Types_ClassInstance,
@@ -99,10 +99,10 @@ VALUE rbs_interface(VALUE typename, VALUE type_args, VALUE location) {
   );
 }
 
-VALUE rbs_union(VALUE types) {
+VALUE rbs_union(VALUE types, VALUE location) {
   VALUE args = rb_hash_new();
   rb_hash_aset(args, ID2SYM(rb_intern("types")), types);
-  rb_hash_aset(args, ID2SYM(rb_intern("location")), Qnil);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
 
   return rb_funcallv_kw(
     RBS_Types_Union,
@@ -113,10 +113,10 @@ VALUE rbs_union(VALUE types) {
   );
 }
 
-VALUE rbs_intersection(VALUE types) {
+VALUE rbs_intersection(VALUE types, VALUE location) {
   VALUE args = rb_hash_new();
   rb_hash_aset(args, ID2SYM(rb_intern("types")), types);
-  rb_hash_aset(args, ID2SYM(rb_intern("location")), Qnil);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
 
   return rb_funcallv_kw(
     RBS_Types_Intersection,
@@ -127,10 +127,10 @@ VALUE rbs_intersection(VALUE types) {
   );
 }
 
-VALUE rbs_tuple(VALUE types) {
+VALUE rbs_tuple(VALUE types, VALUE location) {
   VALUE args = rb_hash_new();
   rb_hash_aset(args, ID2SYM(rb_intern("types")), types);
-  rb_hash_aset(args, ID2SYM(rb_intern("location")), Qnil);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
 
   return rb_funcallv_kw(
     RBS_Types_Tuple,
@@ -141,10 +141,10 @@ VALUE rbs_tuple(VALUE types) {
   );
 }
 
-VALUE rbs_optional(VALUE type) {
+VALUE rbs_optional(VALUE type, VALUE location) {
   VALUE args = rb_hash_new();
   rb_hash_aset(args, ID2SYM(rb_intern("type")), type);
-  rb_hash_aset(args, ID2SYM(rb_intern("location")), Qnil);
+  rb_hash_aset(args, ID2SYM(rb_intern("location")), location);
 
   return rb_funcallv_kw(
     RBS_Types_Optional,

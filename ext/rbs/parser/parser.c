@@ -30,6 +30,7 @@
   case kATTRACCESSOR: \
   case kPUBLIC: \
   case kPRIVATE: \
+  case kUNTYPED: \
   /* nop */
 
 typedef struct {
@@ -444,11 +445,15 @@ static void parse_params(parserstate *state, method_params *params) {
             | {} simple_type <`?`>
 */
 static VALUE parse_optional(parserstate *state) {
+  range rg;
+  rg.start = state->next_token.range.start;
   VALUE type = parse_simple(state);
 
   if (state->next_token.type == pQUESTION) {
     parser_advance(state);
-    return rbs_optional(type);
+    rg.end = state->current_token.range.end;
+    VALUE location = rbs_new_location(state->buffer, rg);
+    return rbs_optional(type, location);
   } else {
     return type;
   }
@@ -681,6 +686,8 @@ static VALUE parse_simple(parserstate *state) {
     return rbs_base_type(RBS_Types_Bases_Top, rbs_location_current_token(state));
   case kVOID:
     return rbs_base_type(RBS_Types_Bases_Void, rbs_location_current_token(state));
+  case kUNTYPED:
+    return rbs_base_type(RBS_Types_Bases_Any, rbs_location_current_token(state));
   case tINTEGER: {
     VALUE literal = rb_funcall(
       string_of_loc(state, state->current_token.range.start, state->current_token.range.end),
@@ -792,9 +799,13 @@ static VALUE parse_simple(parserstate *state) {
     return rbs_class_singleton(typename, location);
   }
   case pLBRACKET: {
+    range rg;
+    rg.start = state->current_token.range.start;
     VALUE types = parse_type_list(state, pRBRACKET, rb_ary_new());
     parser_advance_assert(state, pRBRACKET);
-    return rbs_tuple(types);
+    rg.end = state->current_token.range.end;
+
+    return rbs_tuple(types, rbs_new_location(state->buffer, rg));
   }
   case pLBRACE: {
     position start = state->current_token.range.start;
@@ -821,6 +832,9 @@ static VALUE parse_simple(parserstate *state) {
                  | {} <optional>
 */
 static VALUE parse_intersection(parserstate *state) {
+  range rg;
+
+  rg.start = state->next_token.range.start;
   VALUE type = parse_optional(state);
   VALUE intersection_types = rb_ary_new();
 
@@ -830,8 +844,11 @@ static VALUE parse_intersection(parserstate *state) {
     rb_ary_push(intersection_types, parse_optional(state));
   }
 
+  rg.end = state->current_token.range.end;
+
   if (rb_array_len(intersection_types) > 1) {
-    type = rbs_intersection(intersection_types);
+    VALUE location = rbs_new_location(state->buffer, rg);
+    type = rbs_intersection(intersection_types, location);
   }
 
   return type;
@@ -842,6 +859,9 @@ static VALUE parse_intersection(parserstate *state) {
           | {} <intersection>
 */
 VALUE parse_type(parserstate *state) {
+  range rg;
+
+  rg.start = state->next_token.range.start;
   VALUE type = parse_intersection(state);
   VALUE union_types = rb_ary_new();
 
@@ -851,8 +871,11 @@ VALUE parse_type(parserstate *state) {
     rb_ary_push(union_types, parse_intersection(state));
   }
 
+  rg.end = state->current_token.range.end;
+
   if (rb_array_len(union_types) > 1) {
-    type = rbs_union(union_types);
+    VALUE location = rbs_new_location(state->buffer, rg);
+    type = rbs_union(union_types, location);
   }
 
   return type;

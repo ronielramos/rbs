@@ -237,6 +237,9 @@ Init_parser(void)
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("attr_accessor"), INT2FIX(kATTRACCESSOR));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("public"), INT2FIX(kPUBLIC));
   rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("private"), INT2FIX(kPRIVATE));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("untyped"), INT2FIX(kUNTYPED));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("true"), INT2FIX(kTRUE));
+  rb_hash_aset(rbsparser_Keywords, rb_str_new_literal("false"), INT2FIX(kFALSE));
 
   rb_define_const(RBSParser, "KEYWORDS", rbsparser_Keywords);
 

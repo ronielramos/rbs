@@ -56,6 +56,7 @@ enum TokenType {
   kATTRACCESSOR,    /* attr_accessor */
   kPUBLIC,          /* public */
   kPRIVATE,         /* private */
+  kUNTYPED,         /* untyped */
 
   tLIDENT,          /* Identifiers starting with lower case */
   tUIDENT,          /* Identifiers starting with upper case */
